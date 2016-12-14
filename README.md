@@ -1,6 +1,10 @@
 # onlineSG
 Code repository for the Thesis work on Online Learning Security Games by Lorenzo Bisi
 
+## If you want to see some examples
+- try Example.ipynb, or view it online
+    + Stackelberg(1) VS Uniform(1)
+
 ## Game steps:
 - For each Player:
     + get feedback (if not in the first turn)

@@ -1,4 +1,5 @@
 from random import uniform
+import numpy as np
 
 
 class Player:
@@ -30,10 +31,37 @@ class Player:
                                   reverse=True)[:self.resources]
         return selected_targets
 
+    def get_rewards(self, t=None):
+        """
+        return all the rewards until t-turn
+        """
+        if not t:
+            t = len(self.game.history)
+        return list(map(lambda m: self.game.get_player_payoff(self.id, m),
+                        self.game.history[:t]))
 
-class Attacker(Player):
-    pass
+
+class StackelbergAttacker(Player):
+
+    def compute_strategy(self):
+        targets = range(len(self.game.values))
+
+        # compute total probability of being covered for each target (c[t])
+        defenders_strategies = [np.array(self.game.strategy_history[-1][d])
+                                for d in self.game.defenders]
+
+        # (sum the probabilities of differents defenders)
+        not_normalized_coverage = sum(defenders_strategies)
+
+        # normalize
+        coverage = not_normalized_coverage / np.linalg.norm(not_normalized_coverage, ord=1)
+
+        # compute the expected value of each target (v[t]*(1-c[t]))
+        values = np.array([self.game.values[t][self.id] for t in targets])
+        expected_payoffs = values * (np.ones(len(targets)) - coverage)
+
+        # play the argmax
+        choice = max(targets, key=lambda t: expected_payoffs[t])
+        return [int(t==choice) for t in targets]
 
 
-class Defender(Player):
-    pass

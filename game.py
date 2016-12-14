@@ -36,7 +36,7 @@ class Game:
 
         # Attackers possibly observe and compute strategies
         for a in self.attackers:
-            self.strategy_history[-1][a] = self.players[d].compute_strategy()
+            self.strategy_history[-1][a] = self.players[a].compute_strategy()
 
         # Players extract a sample from their strategies
         self.history.append(dict())
