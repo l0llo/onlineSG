@@ -47,7 +47,7 @@ class Game:
         for t in range(self.time_horizon):
             self.play_turn()
 
-    def get_player_payoff(self, player_index, moves):
+    def get_player_payoffs(self, player_index, moves):
         """
         It returns the utility of a player given a dict
         of moves. Each move is a tuple of target indexes
@@ -57,20 +57,20 @@ class Game:
         if player_index in self.attackers:
             hit_targets = set(t for t in moves[player_index]
                               if t not in covered_targets)
-            return sum([v[player_index] for (i, v) in enumerate(self.values)
-                        if i in hit_targets])
+            return [v[player_index] * (i in hit_targets)
+                    for (i, v) in enumerate(self.values)]
         elif player_index in self.defenders:
             all_hit_targets = set(t for a in self.attackers for t in moves[a]
                                   if t not in covered_targets)
-            return sum([-(v[player_index]) for (i, v) in enumerate(self.values)
-                        if i in all_hit_targets])
+            return [-(v[player_index]) * (i in all_hit_targets)
+                    for (i, v) in enumerate(self.values)]
         else:
             raise Exception(
                 "Cannot compute utility for an index than does not exit"
             )
 
-    def get_last_turn_payoff(self, player_index):
-        return self.get_player_payoff(player_index, self.history[-1])
+    def get_last_turn_payoffs(self, player_index):
+        return self.get_player_payoffs(player_index, self.history[-1])
 
 
 def main():
