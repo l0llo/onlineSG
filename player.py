@@ -1,10 +1,22 @@
 from random import uniform, shuffle
 import numpy as np
+import re
 
 
 class Player:
+    name = "player"
+    pattern = re.compile(r"^" + name + "\d?$")
 
-    def __init__(self, game, id, resources):
+    def parse(player_type, game, id):
+        if __class__.pattern.match(player_type):
+            args = [game, id] + [int(a) for a in
+                                 player_type.split(__class__.name)[1].split("-")
+                                 if a != '']
+            return __class__(*args)
+        else:
+            return None
+
+    def __init__(self, game, id, resources=1):
         """
 
         """
@@ -33,8 +45,19 @@ class Player:
 
 
 class Defender(Player):
+    name = "defender"
+    pattern = re.compile(r"^" + name + "\d?$")
 
-    def __init__(self, game, id, resources):
+    def parse(player_type, game, id):
+        if __class__.pattern.match(player_type):
+            args = [game, id] + [int(a) for a in
+                                 player_type.split(__class__.name)[1].split("-")
+                                 if a != '']
+            return __class__(*args)
+        else:
+            return None
+
+    def __init__(self, game, id, resources=1):
         """"
         Attributes
 
@@ -81,13 +104,36 @@ class Attacker(Player):
 
 class StackelbergAttacker(Attacker):
 
+    name = "stackelberg"
+    pattern = re.compile(r"^" + name + "\d?$")
+
+    def parse(player_type, game, id):
+        if __class__.pattern.match(player_type):
+            args = [game, id] + [int(a) for a in
+                                 player_type.split(__class__.name)[1].split("-")
+                                 if a != '']
+            return __class__(*args)
+        else:
+            return None
+
     def compute_strategy(self):
         return self.best_respond(self.game.strategy_history[-1])
 
 
 class DumbAttacker(Attacker):
+    name = "dumb"
+    pattern = re.compile(r"^" + name + "\d?$")
 
-    def __init__(self, game, id, resources, choice=None):
+    def parse(player_type, game, id):
+        if __class__.pattern.match(player_type):
+            args = [game, id] + [int(a) for a in
+                                 player_type.split(__class__.name)[1].split("-")
+                                 if a != '']
+            return __class__(*args)
+        else:
+            return None
+
+    def __init__(self, game, id, resources=1, choice=None):
         super().__init__(game, id, resources)
         if not choice or len(choice) != self.resources:
             shuffled_targets = list(range(len(self.game.values)))
@@ -100,8 +146,19 @@ class DumbAttacker(Attacker):
 
 
 class FictiousPlayerAttacker(Attacker):
+    name = "fictitious"
+    pattern = re.compile(r"^" + name + r"\d?(-\d)?$")
 
-    def __init__(self, game, id, resources, initial_weight=10):
+    def parse(player_type, game, id):
+        if __class__.pattern.match(player_type):
+            args = [game, id] + [int(a) for a in
+                                 player_type.split(__class__.name)[1].split("-")
+                                 if a != '']
+            return __class__(*args)
+        else:
+            return None
+
+    def __init__(self, game, id, resources=1, initial_weight=10):
         super().__init__(game, id, resources)
         self.weights = None
         self.initial_weight = initial_weight
