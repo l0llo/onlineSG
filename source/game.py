@@ -1,4 +1,4 @@
-from player import Player
+from source.player import Player
 from functools import reduce
 from operator import and_
 import re
@@ -7,28 +7,17 @@ import numbers
 
 class Game:
     """
-    Attributes:
-
-    values      tuple with a tuple for each target with the values for each player
-    players     dict of players indexed by integers
-    defenders   list of defenders' indexes
-    attackers   list of attackers' indexes
-    followers   list of followers' indexes
-    history     list of dict for each turn: each one is made by the moves of the players
-            (each move is a tuple of choosen targets indexes)
-
-    For now we have a values tuple, but in general we could generalize and use a tensor with
-    the players payoffs: this would mean changing also the get_player_payoff method
     """
 
     value_patterns = [re.compile(r"^\d$"),
                       re.compile(r"^\(\d( \d)+\)$")]
 
-    def parse_value(values, players_number):
+    @classmethod
+    def parse_value(cls, values, players_number):
         if reduce(and_, [isinstance(v, numbers.Number) for v in values]):
             return [[v for p in range(players_number)]
                     for v in values]
-        elif reduce(and_, [__class__.value_patterns[1].match(v)
+        elif reduce(and_, [cls.value_patterns[1].match(v)
                            for v in values]):
             value_tuples = [[int(i) for i in v.strip("()").split(' ')]
                             for v in values]
@@ -40,11 +29,21 @@ class Game:
             return None
 
     def __init__(self, payoffs, time_horizon):
+
+        #: tuple with a tuple for each target with the values for each
+        #: player
         self.values = payoffs
+        #:
         self.time_horizon = time_horizon
+        #: dict of players indexed by integers
         self.players = dict()
+        #: list of attackers' indexes
         self.attackers = []
+        #: list of defenders' indexes
         self.defenders = []
+        #: list of dict for each turn: each one is made by the
+        #: moves of the players (each move is a tuple of choosen targets
+        #: indexes)
         self.history = []
         self.strategy_history = []
 

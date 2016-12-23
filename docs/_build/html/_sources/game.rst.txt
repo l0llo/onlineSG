@@ -1,0 +1,4 @@
+Game
+====
+.. automodule:: source.game
+    :members:

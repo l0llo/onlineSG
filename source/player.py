@@ -18,6 +18,9 @@ class Player:
 
     @classmethod
     def parse(cls, player_type, game, id):
+        """
+        This is the default
+        """
         if cls.pattern.match(player_type):
             args = [game, id] + [int(a) for a in
                                  player_type.split(cls.name)[1].split("-")

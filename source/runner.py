@@ -1,11 +1,11 @@
-from parsers import *
-from environment import *
+from source.parsers import *
+from source.environment import *
 from collections import namedtuple
 from os import listdir
 from os.path import isfile, join
 
 
-experiment = namedtuple('experiment', ['environment', 'agent', 'game']) #, 'status'])
+experiment = namedtuple('experiment', ['environment', 'agent', 'game'])  #, 'status'])
 batch = namedtuple('batch', ['name', 'parser', 'experiments'])
 
 
@@ -30,7 +30,7 @@ def get_experiment(parser, index):
                       agent=agent)  #, status=False)
 
 
-def run_experiment_cycle(i):
+def run_experiment_interaction(i):
     strategy = i.agent.compute_strategy()
     i.environment.observe_strategy(strategy)
     realization = i.agent.sample_strategy()
@@ -39,9 +39,9 @@ def run_experiment_cycle(i):
     i.agent.receive_feedback(feedback)
 
 
-def run_whole_experiment(i):
-    while(not i.game.is_finished()):
-          run_experiment_cycle(i)
+def run_whole_experiment(e):
+    while(not e.game.is_finished()):
+          run_experiment_interaction(e)
     #i.status = True
 
 

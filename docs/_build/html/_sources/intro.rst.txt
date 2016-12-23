@@ -1,0 +1,11 @@
+Introduction
+============
+onlineSG is a library for modeling Security Games. It is built around two main classes: *Game* and *Player*.
+
+*Game* contains all the data and the logic related to the Game Theory beneath the SG.
+
+*Player* is the base class for all the player classes that represent the various types of agents that can interact in a SG.
+
+.. image:: _images/class_diagram.png
+
+The class diagram illustrates the relationship within the different classes.

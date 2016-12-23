@@ -4,6 +4,17 @@ __pycache__/
 *$py.class
 
 
+# Docs
+_build/doctrees
+_build/latex
+_build/pdf
+_static/
+_templates/
+_images/
+docs/conf.py
+*.rst
+Makefile
+
 # Distribution / packaging
 .Python
 env/
@@ -60,3 +71,6 @@ target/
 
 .idea
 *.html
+
+# experiments
+games/
