@@ -4,22 +4,29 @@ import re
 
 
 class Player:
+    """
+    It is the base class from which all players inherit. It implements the 
+    default compute_strategy method (as a uniform player) and the 
+    sample_strategy method.
+
+    Each subclass has class attributes (name and pattern) and a class method
+    (parse): they are used for the parsing of the player columns in the config 
+    files.
+    """
     name = "player"
     pattern = re.compile(r"^" + name + "\d?$")
 
-    def parse(player_type, game, id):
-        if __class__.pattern.match(player_type):
+    @classmethod
+    def parse(cls, player_type, game, id):
+        if cls.pattern.match(player_type):
             args = [game, id] + [int(a) for a in
-                                 player_type.split(__class__.name)[1].split("-")
+                                 player_type.split(cls.name)[1].split("-")
                                  if a != '']
-            return __class__(*args)
+            return cls(*args)
         else:
             return None
 
     def __init__(self, game, id, resources=1):
-        """
-
-        """
         self.game = game
         self.id = id
         self.resources = resources
@@ -48,15 +55,6 @@ class Defender(Player):
     name = "defender"
     pattern = re.compile(r"^" + name + "\d?$")
 
-    def parse(player_type, game, id):
-        if __class__.pattern.match(player_type):
-            args = [game, id] + [int(a) for a in
-                                 player_type.split(__class__.name)[1].split("-")
-                                 if a != '']
-            return __class__(*args)
-        else:
-            return None
-
     def __init__(self, game, id, resources=1):
         """"
         Attributes
@@ -72,6 +70,10 @@ class Defender(Player):
 
 
 class Attacker(Player):
+    """
+    The Attacker base class from which all the attacker inherit: it implements
+    the best_respond method which is used by many types of adversaries.
+    """
 
     def best_respond(self, strategies):
         """
@@ -103,35 +105,25 @@ class Attacker(Player):
 
 
 class StackelbergAttacker(Attacker):
+    """
+    The Stackelberg attacker observes the Defender strategy and plays a pure
+    strategy that best responds to it.
+    """
 
     name = "stackelberg"
     pattern = re.compile(r"^" + name + "\d?$")
-
-    def parse(player_type, game, id):
-        if __class__.pattern.match(player_type):
-            args = [game, id] + [int(a) for a in
-                                 player_type.split(__class__.name)[1].split("-")
-                                 if a != '']
-            return __class__(*args)
-        else:
-            return None
 
     def compute_strategy(self):
         return self.best_respond(self.game.strategy_history[-1])
 
 
 class DumbAttacker(Attacker):
+    """
+    The Dumb attacker, given an initially choosen action, always plays itp
+    """
+
     name = "dumb"
     pattern = re.compile(r"^" + name + "\d?$")
-
-    def parse(player_type, game, id):
-        if __class__.pattern.match(player_type):
-            args = [game, id] + [int(a) for a in
-                                 player_type.split(__class__.name)[1].split("-")
-                                 if a != '']
-            return __class__(*args)
-        else:
-            return None
 
     def __init__(self, game, id, resources=1, choice=None):
         super().__init__(game, id, resources)
@@ -146,17 +138,15 @@ class DumbAttacker(Attacker):
 
 
 class FictiousPlayerAttacker(Attacker):
+    """
+    The fictitious player computes the empirical distribution of the adversary
+    move and then best respond to it. When it starts it has a vector of weights
+    for each target and at each round the plays the inverse of that weight 
+    normalized to the weights sum. Then he observe the opponent's move and 
+    update the weights acconding to it.
+    """
     name = "fictitious"
     pattern = re.compile(r"^" + name + r"\d?(-\d)?$")
-
-    def parse(player_type, game, id):
-        if __class__.pattern.match(player_type):
-            args = [game, id] + [int(a) for a in
-                                 player_type.split(__class__.name)[1].split("-")
-                                 if a != '']
-            return __class__(*args)
-        else:
-            return None
 
     def __init__(self, game, id, resources=1, initial_weight=10):
         super().__init__(game, id, resources)
@@ -177,3 +167,51 @@ class FictiousPlayerAttacker(Attacker):
             self.weights = {d: [self.initial_weight for t in targets]
                             for d in self.game.defenders}
         return self.best_respond(self.weights)
+
+
+class StUDefender(Defender):
+    """
+    This defender is able to distinguish between a uniform
+    or a stackelberg attacker and best respond accordingly
+
+    This is only an example: from our computation in fact against these two
+    kind of adversaries there is no interests in distinguish between them:
+    in fact playing always the best response to a stackelberg player does not
+    generate any regret.
+    """
+    name = "stu_defender"
+    pattern = re.compile(r"^" + name + "\d?$")
+
+    def __init__(self, game, id, resources=1, confidence=0.9):
+        super().__init__(game, id, resources)
+        self.confidence = confidence
+        self.mock_stackelberg = StackelbergAttacker(self.game, 1)
+        self.belief = {'uniform': 1,
+                       'stackelberg': 0}
+
+    def compute_strategy(self):
+        if len(self.game.history) == 1 or self.belief['stackelberg']:
+            last_move = self.game.history[-1][1][0]
+            mock_move = [i for i in self.mock_stackelberg.compute_strategy()
+                         if i][0]
+            if last_move == mock_move:
+                self.belief['uniform'] = self.belief['uniform'] * (1 / len(self.game.values))
+                self.belief['stackelberg'] = 1 - self.belief['uniform']
+            else:
+                self.belief['uniform'] = 1
+                self.belief['stackelberg'] = 0
+
+        if self.belief['stackelberg']:
+            self.br_stackelberg()  # minimax in two players game
+        else:
+            return self.br_uniform()  # highest value action
+
+    def br_uniform(self):
+        targets = range(len(self.game.values))
+        max_target = max(targets, key=lambda x: self.game.values[x][0])
+        return [int(i == max_target) for i in targets]
+
+    def br_stackelberg(self):  # <------   WRONG: implement using a linear program
+        targets = range(len(self.game.values))
+        max_target = max(targets, key=lambda x: self.game.values[x][0])
+        return [int(i == max_target) for i in targets]

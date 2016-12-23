@@ -5,8 +5,8 @@ from os import listdir
 from os.path import isfile, join
 
 
-interaction = namedtuple('interaction', ['environment', 'agent', 'game']) #, 'status'])
-batch = namedtuple('batch', ['name', 'parser', 'interactions'])
+experiment = namedtuple('experiment', ['environment', 'agent', 'game']) #, 'status'])
+batch = namedtuple('batch', ['name', 'parser', 'experiments'])
 
 
 class Runner:
@@ -14,7 +14,7 @@ class Runner:
     def __init__(self, folder_path):
         files = [folder_path + '/' + f for f in listdir(folder_path)
                  if isfile(join(folder_path, f))]
-        self.batches = [batch(name=f, parser=Parser(f), interactions=[])
+        self.batches = [batch(name=f, parser=Parser(f), experiments=[])
                         for f in files]
 
     def run(self):
@@ -22,15 +22,15 @@ class Runner:
             run_batch(b)
 
 
-def get_interaction(parser, index):
+def get_experiment(parser, index):
     game = parser.parse_row(index)
     environment = Environment(game, 0)
     agent = game.players[0]
-    return interaction(game=game, environment=environment,
-                       agent=agent)  #, status=False)
+    return experiment(game=game, environment=environment,
+                      agent=agent)  #, status=False)
 
 
-def run_interaction_cycle(i):
+def run_experiment_cycle(i):
     strategy = i.agent.compute_strategy()
     i.environment.observe_strategy(strategy)
     realization = i.agent.sample_strategy()
@@ -39,14 +39,14 @@ def run_interaction_cycle(i):
     i.agent.receive_feedback(feedback)
 
 
-def run_whole_interaction(i):
+def run_whole_experiment(i):
     while(not i.game.is_finished()):
-        run_interaction_cycle(i)
+          run_experiment_cycle(i)
     #i.status = True
 
 
 def run_batch(b):
     for row in range(len(b.parser.df)):
-        i = get_interaction(b.parser, row)
-        b.interactions.append(i)
-        run_whole_interaction(i)
+        i = get_experiment(b.parser, row)
+        b.experiments.append(i)
+        run_whole_experiment(i)

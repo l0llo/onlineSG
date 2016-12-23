@@ -33,10 +33,10 @@ class Parser:
         time_horizon = self.df["T"].iloc[index]
         player_number = len(attacker_types) + len(defender_types)
         game = parse_game(values, player_number, time_horizon)  # <-------- handle exception here!!!
-        attackers = [parse_player(a, game, i)
-                     for (i, a) in enumerate(attacker_types)]  # <-------- handle exception here!!!
         defenders = [parse_player(d, game, j)
                      for (j, d) in enumerate(defender_types)]
+        attackers = [parse_player(a, game, i + len(defenders))
+                     for (i, a) in enumerate(attacker_types)]  # <-------- handle exception here!!!
         game.set_players(defenders, attackers)
         return game
 
