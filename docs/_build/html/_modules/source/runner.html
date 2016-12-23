@@ -1,0 +1,139 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>source.runner &#8212; onlineSG  documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true,
+        SOURCELINK_SUFFIX: '.txt'
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head>
+  <body role="document">
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for source.runner</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span> <span class="nn">source.parsers</span> <span class="k">import</span> <span class="o">*</span>
+<span class="kn">from</span> <span class="nn">source.environment</span> <span class="k">import</span> <span class="o">*</span>
+<span class="kn">from</span> <span class="nn">collections</span> <span class="k">import</span> <span class="n">namedtuple</span>
+<span class="kn">from</span> <span class="nn">os</span> <span class="k">import</span> <span class="n">listdir</span>
+<span class="kn">from</span> <span class="nn">os.path</span> <span class="k">import</span> <span class="n">isfile</span><span class="p">,</span> <span class="n">join</span>
+
+
+<span class="n">experiment</span> <span class="o">=</span> <span class="n">namedtuple</span><span class="p">(</span><span class="s1">&#39;experiment&#39;</span><span class="p">,</span> <span class="p">[</span><span class="s1">&#39;environment&#39;</span><span class="p">,</span> <span class="s1">&#39;agent&#39;</span><span class="p">,</span> <span class="s1">&#39;game&#39;</span><span class="p">])</span>  <span class="c1">#, &#39;status&#39;])</span>
+<span class="n">batch</span> <span class="o">=</span> <span class="n">namedtuple</span><span class="p">(</span><span class="s1">&#39;batch&#39;</span><span class="p">,</span> <span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">,</span> <span class="s1">&#39;parser&#39;</span><span class="p">,</span> <span class="s1">&#39;experiments&#39;</span><span class="p">])</span>
+
+
+<span class="k">class</span> <span class="nc">Runner</span><span class="p">:</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">folder_path</span><span class="p">):</span>
+        <span class="n">files</span> <span class="o">=</span> <span class="p">[</span><span class="n">folder_path</span> <span class="o">+</span> <span class="s1">&#39;/&#39;</span> <span class="o">+</span> <span class="n">f</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">listdir</span><span class="p">(</span><span class="n">folder_path</span><span class="p">)</span>
+                 <span class="k">if</span> <span class="n">isfile</span><span class="p">(</span><span class="n">join</span><span class="p">(</span><span class="n">folder_path</span><span class="p">,</span> <span class="n">f</span><span class="p">))]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">batches</span> <span class="o">=</span> <span class="p">[</span><span class="n">batch</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="n">f</span><span class="p">,</span> <span class="n">parser</span><span class="o">=</span><span class="n">Parser</span><span class="p">(</span><span class="n">f</span><span class="p">),</span> <span class="n">experiments</span><span class="o">=</span><span class="p">[])</span>
+                        <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">files</span><span class="p">]</span>
+
+    <span class="k">def</span> <span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">batches</span><span class="p">:</span>
+            <span class="n">run_batch</span><span class="p">(</span><span class="n">b</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">get_experiment</span><span class="p">(</span><span class="n">parser</span><span class="p">,</span> <span class="n">index</span><span class="p">):</span>
+    <span class="n">game</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">parse_row</span><span class="p">(</span><span class="n">index</span><span class="p">)</span>
+    <span class="n">environment</span> <span class="o">=</span> <span class="n">Environment</span><span class="p">(</span><span class="n">game</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+    <span class="n">agent</span> <span class="o">=</span> <span class="n">game</span><span class="o">.</span><span class="n">players</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">experiment</span><span class="p">(</span><span class="n">game</span><span class="o">=</span><span class="n">game</span><span class="p">,</span> <span class="n">environment</span><span class="o">=</span><span class="n">environment</span><span class="p">,</span>
+                      <span class="n">agent</span><span class="o">=</span><span class="n">agent</span><span class="p">)</span>  <span class="c1">#, status=False)</span>
+
+
+<span class="k">def</span> <span class="nf">run_experiment_interaction</span><span class="p">(</span><span class="n">i</span><span class="p">):</span>
+    <span class="n">strategy</span> <span class="o">=</span> <span class="n">i</span><span class="o">.</span><span class="n">agent</span><span class="o">.</span><span class="n">compute_strategy</span><span class="p">()</span>
+    <span class="n">i</span><span class="o">.</span><span class="n">environment</span><span class="o">.</span><span class="n">observe_strategy</span><span class="p">(</span><span class="n">strategy</span><span class="p">)</span>
+    <span class="n">realization</span> <span class="o">=</span> <span class="n">i</span><span class="o">.</span><span class="n">agent</span><span class="o">.</span><span class="n">sample_strategy</span><span class="p">()</span>
+    <span class="n">i</span><span class="o">.</span><span class="n">environment</span><span class="o">.</span><span class="n">observe_realization</span><span class="p">(</span><span class="n">realization</span><span class="p">)</span>
+    <span class="n">feedback</span> <span class="o">=</span> <span class="n">i</span><span class="o">.</span><span class="n">environment</span><span class="o">.</span><span class="n">feedback</span><span class="p">(</span><span class="s2">&quot;expert&quot;</span><span class="p">)</span>
+    <span class="n">i</span><span class="o">.</span><span class="n">agent</span><span class="o">.</span><span class="n">receive_feedback</span><span class="p">(</span><span class="n">feedback</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">run_whole_experiment</span><span class="p">(</span><span class="n">e</span><span class="p">):</span>
+    <span class="k">while</span><span class="p">(</span><span class="ow">not</span> <span class="n">e</span><span class="o">.</span><span class="n">game</span><span class="o">.</span><span class="n">is_finished</span><span class="p">()):</span>
+          <span class="n">run_experiment_interaction</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
+    <span class="c1">#i.status = True</span>
+
+
+<span class="k">def</span> <span class="nf">run_batch</span><span class="p">(</span><span class="n">b</span><span class="p">):</span>
+    <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">b</span><span class="o">.</span><span class="n">parser</span><span class="o">.</span><span class="n">df</span><span class="p">)):</span>
+        <span class="n">i</span> <span class="o">=</span> <span class="n">get_experiment</span><span class="p">(</span><span class="n">b</span><span class="o">.</span><span class="n">parser</span><span class="p">,</span> <span class="n">row</span><span class="p">)</span>
+        <span class="n">b</span><span class="o">.</span><span class="n">experiments</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+        <span class="n">run_whole_experiment</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper"><div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <div><input type="text" name="q" /></div>
+      <div><input type="submit" value="Go" /></div>
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2016, Lorenzo Bisi.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.5.1</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.9</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

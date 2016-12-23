@@ -1,0 +1,186 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Player &#8212; onlineSG  documentation</title>
+    
+    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    './',
+        VERSION:     '',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true,
+        SOURCELINK_SUFFIX: '.txt'
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Environment" href="environment.html" />
+    <link rel="prev" title="Player" href="game.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head>
+  <body role="document">
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="module-source.player">
+<span id="player"></span><h1>Player<a class="headerlink" href="#module-source.player" title="Permalink to this headline">¶</a></h1>
+<dl class="class">
+<dt id="source.player.Player">
+<em class="property">class </em><code class="descclassname">source.player.</code><code class="descname">Player</code><span class="sig-paren">(</span><em>game</em>, <em>id</em>, <em>resources=1</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/source/player.html#Player"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#source.player.Player" title="Permalink to this definition">¶</a></dt>
+<dd><p>It is the base class from which all players inherit. It implements the 
+default compute_strategy method (as a uniform player) and the 
+sample_strategy method.</p>
+<p>Each subclass has class attributes (name and pattern) and a class method
+(parse): they are used for the parsing of the player columns in the config 
+files.</p>
+<dl class="classmethod">
+<dt id="source.player.Player.parse">
+<em class="property">classmethod </em><code class="descname">parse</code><span class="sig-paren">(</span><em>player_type</em>, <em>game</em>, <em>id</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/source/player.html#Player.parse"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#source.player.Player.parse" title="Permalink to this definition">¶</a></dt>
+<dd><p>This is the default</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="source.player.Player.compute_strategy">
+<code class="descname">compute_strategy</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/source/player.html#Player.compute_strategy"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#source.player.Player.compute_strategy" title="Permalink to this definition">¶</a></dt>
+<dd><p>set a probability distribution over the targets
+default: uniform strategy</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="source.player.Player.sample_strategy">
+<code class="descname">sample_strategy</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/source/player.html#Player.sample_strategy"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#source.player.Player.sample_strategy" title="Permalink to this definition">¶</a></dt>
+<dd><p>sample a move from the computed distribution</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="source.player.Attacker">
+<em class="property">class </em><code class="descclassname">source.player.</code><code class="descname">Attacker</code><span class="sig-paren">(</span><em>game</em>, <em>id</em>, <em>resources=1</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/source/player.html#Attacker"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#source.player.Attacker" title="Permalink to this definition">¶</a></dt>
+<dd><p>The Attacker base class from which all the attacker inherit: it implements
+the best_respond method which is used by many types of adversaries.</p>
+<dl class="method">
+<dt id="source.player.Attacker.best_respond">
+<code class="descname">best_respond</code><span class="sig-paren">(</span><em>strategies</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/source/player.html#Attacker.best_respond"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#source.player.Attacker.best_respond" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compute the pure strategy that best respond to a given dict of
+defender strategies</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="source.player.StackelbergAttacker">
+<em class="property">class </em><code class="descclassname">source.player.</code><code class="descname">StackelbergAttacker</code><span class="sig-paren">(</span><em>game</em>, <em>id</em>, <em>resources=1</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/source/player.html#StackelbergAttacker"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#source.player.StackelbergAttacker" title="Permalink to this definition">¶</a></dt>
+<dd><p>The Stackelberg attacker observes the Defender strategy and plays a pure
+strategy that best responds to it.</p>
+</dd></dl>
+
+<dl class="class">
+<dt id="source.player.DumbAttacker">
+<em class="property">class </em><code class="descclassname">source.player.</code><code class="descname">DumbAttacker</code><span class="sig-paren">(</span><em>game</em>, <em>id</em>, <em>resources=1</em>, <em>choice=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/source/player.html#DumbAttacker"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#source.player.DumbAttacker" title="Permalink to this definition">¶</a></dt>
+<dd><p>The Dumb attacker, given an initially choosen action, always plays itp</p>
+</dd></dl>
+
+<dl class="class">
+<dt id="source.player.FictiousPlayerAttacker">
+<em class="property">class </em><code class="descclassname">source.player.</code><code class="descname">FictiousPlayerAttacker</code><span class="sig-paren">(</span><em>game</em>, <em>id</em>, <em>resources=1</em>, <em>initial_weight=10</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/source/player.html#FictiousPlayerAttacker"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#source.player.FictiousPlayerAttacker" title="Permalink to this definition">¶</a></dt>
+<dd><p>The fictitious player computes the empirical distribution of the adversary
+move and then best respond to it. When it starts it has a vector of weights
+for each target and at each round the plays the inverse of that weight 
+normalized to the weights sum. Then he observe the opponent&#8217;s move and 
+update the weights acconding to it.</p>
+<dl class="method">
+<dt id="source.player.FictiousPlayerAttacker.compute_strategy">
+<code class="descname">compute_strategy</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/source/player.html#FictiousPlayerAttacker.compute_strategy"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#source.player.FictiousPlayerAttacker.compute_strategy" title="Permalink to this definition">¶</a></dt>
+<dd><p>Add 1 to the weight of each covered target in the defender profile
+at each round: then best respond to the computed strategy</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="source.player.StUDefender">
+<em class="property">class </em><code class="descclassname">source.player.</code><code class="descname">StUDefender</code><span class="sig-paren">(</span><em>game</em>, <em>id</em>, <em>resources=1</em>, <em>confidence=0.9</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/source/player.html#StUDefender"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#source.player.StUDefender" title="Permalink to this definition">¶</a></dt>
+<dd><p>This defender is able to distinguish between a uniform
+or a stackelberg attacker and best respond accordingly</p>
+<p>This is only an example: from our computation in fact against these two
+kind of adversaries there is no interests in distinguish between them:
+in fact playing always the best response to a stackelberg player does not
+generate any regret.</p>
+</dd></dl>
+
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper"><div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="game.html" title="previous chapter">Player</a></li>
+      <li>Next: <a href="environment.html" title="next chapter">Environment</a></li>
+  </ul></li>
+</ul>
+</div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/player.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <div><input type="text" name="q" /></div>
+      <div><input type="submit" value="Go" /></div>
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2016, Lorenzo Bisi.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.5.1</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.9</a>
+      
+      |
+      <a href="_sources/player.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

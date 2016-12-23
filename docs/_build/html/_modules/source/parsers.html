@@ -1,0 +1,170 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>source.parsers &#8212; onlineSG  documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true,
+        SOURCELINK_SUFFIX: '.txt'
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head>
+  <body role="document">
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for source.parsers</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">source.game</span> <span class="k">as</span> <span class="nn">game</span>
+<span class="kn">import</span> <span class="nn">source.player</span> <span class="k">as</span> <span class="nn">player</span>
+<span class="kn">import</span> <span class="nn">inspect</span>
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+
+
+<div class="viewcode-block" id="Parser"><a class="viewcode-back" href="../../parsers.html#source.parsers.Parser">[docs]</a><span class="k">class</span> <span class="nc">Parser</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Attributes</span>
+<span class="sd">    df                  the pandas dataframe corresponding to the</span>
+<span class="sd">                        config file gives as input</span>
+<span class="sd">    targets_headers     as below</span>
+<span class="sd">    attackers_headers   as below</span>
+<span class="sd">    defenders_headers   the relative dataframe header</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">csv_file_path</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">csv_file_path</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">targets_headers</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">attackers_headers</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">defenders_headers</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">h</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">targets_headers</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">h</span><span class="p">))</span>
+            <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+                <span class="k">if</span> <span class="s2">&quot;Attacker&quot;</span> <span class="ow">in</span> <span class="n">h</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">attackers_headers</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">h</span><span class="p">)</span>
+                <span class="k">elif</span> <span class="s2">&quot;Defender&quot;</span> <span class="ow">in</span> <span class="n">h</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">defenders_headers</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">h</span><span class="p">)</span>
+                <span class="k">elif</span> <span class="n">h</span> <span class="o">!=</span> <span class="s2">&quot;T&quot;</span><span class="p">:</span>
+                    <span class="ne">Exception</span><span class="p">(</span><span class="s2">&quot;unknown header&quot;</span><span class="p">)</span>
+
+<div class="viewcode-block" id="Parser.parse_row"><a class="viewcode-back" href="../../parsers.html#source.parsers.Parser.parse_row">[docs]</a>    <span class="k">def</span> <span class="nf">parse_row</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">index</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        returns a game object from the row at the specified index of the config</span>
+<span class="sd">        file. </span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">attacker_types</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">df</span><span class="p">[</span><span class="n">a</span><span class="p">]</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="n">index</span><span class="p">]</span>
+                          <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">attackers_headers</span>
+                          <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">df</span><span class="p">[</span><span class="n">a</span><span class="p">]</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="n">index</span><span class="p">],</span> <span class="nb">str</span><span class="p">)]</span>
+        <span class="n">defender_types</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">df</span><span class="p">[</span><span class="n">d</span><span class="p">]</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="n">index</span><span class="p">]</span>
+                          <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">defenders_headers</span>
+                          <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">df</span><span class="p">[</span><span class="n">d</span><span class="p">]</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="n">index</span><span class="p">],</span> <span class="nb">str</span><span class="p">)]</span>
+        <span class="n">values</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">df</span><span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">t</span><span class="p">)]</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="n">index</span><span class="p">]</span>
+                  <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">targets_headers</span><span class="p">]</span>
+        <span class="n">time_horizon</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">df</span><span class="p">[</span><span class="s2">&quot;T&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="n">index</span><span class="p">]</span>
+        <span class="n">player_number</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">attacker_types</span><span class="p">)</span> <span class="o">+</span> <span class="nb">len</span><span class="p">(</span><span class="n">defender_types</span><span class="p">)</span>
+        <span class="n">game</span> <span class="o">=</span> <span class="n">parse_game</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="n">player_number</span><span class="p">,</span> <span class="n">time_horizon</span><span class="p">)</span>  <span class="c1"># &lt;-------- handle exception here!!!</span>
+        <span class="n">defenders</span> <span class="o">=</span> <span class="p">[</span><span class="n">parse_player</span><span class="p">(</span><span class="n">d</span><span class="p">,</span> <span class="n">game</span><span class="p">,</span> <span class="n">j</span><span class="p">)</span>
+                     <span class="k">for</span> <span class="p">(</span><span class="n">j</span><span class="p">,</span> <span class="n">d</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">defender_types</span><span class="p">)]</span>
+        <span class="n">attackers</span> <span class="o">=</span> <span class="p">[</span><span class="n">parse_player</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">game</span><span class="p">,</span> <span class="n">i</span> <span class="o">+</span> <span class="nb">len</span><span class="p">(</span><span class="n">defenders</span><span class="p">))</span>
+                     <span class="k">for</span> <span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">a</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">attacker_types</span><span class="p">)]</span>  <span class="c1"># &lt;-------- handle exception here!!!</span>
+        <span class="n">game</span><span class="o">.</span><span class="n">set_players</span><span class="p">(</span><span class="n">defenders</span><span class="p">,</span> <span class="n">attackers</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">game</span></div></div>
+
+
+<div class="viewcode-block" id="parse_player"><a class="viewcode-back" href="../../parsers.html#source.parsers.parse_player">[docs]</a><span class="k">def</span> <span class="nf">parse_player</span><span class="p">(</span><span class="n">player_type</span><span class="p">,</span> <span class="n">game</span><span class="p">,</span> <span class="nb">id</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    tries to parse the player_type calling the parse class method of all the</span>
+<span class="sd">    classes of player module, and returns a Player or a subclass; otherwise </span>
+<span class="sd">    raises an exception</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">players_classes</span> <span class="o">=</span> <span class="p">[</span><span class="n">obj</span> <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">obj</span> <span class="ow">in</span> <span class="n">inspect</span><span class="o">.</span><span class="n">getmembers</span><span class="p">(</span><span class="n">player</span><span class="p">)</span>
+                       <span class="k">if</span> <span class="n">inspect</span><span class="o">.</span><span class="n">isclass</span><span class="p">(</span><span class="n">obj</span><span class="p">)]</span>
+    <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">players_classes</span><span class="p">:</span>
+        <span class="n">parsed</span> <span class="o">=</span> <span class="n">c</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">player_type</span><span class="p">,</span> <span class="n">game</span><span class="p">,</span> <span class="nb">id</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">parsed</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">parsed</span>
+    <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s2">&quot;Unparsable player&quot;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="parse_game"><a class="viewcode-back" href="../../parsers.html#source.parsers.parse_game">[docs]</a><span class="k">def</span> <span class="nf">parse_game</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="n">player_number</span><span class="p">,</span> <span class="n">time_horizon</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    tries to parse the values calling the parse class method of all the</span>
+<span class="sd">    classes of game module, and then return a game; otherwise raises an </span>
+<span class="sd">    exception</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">games_classes</span> <span class="o">=</span> <span class="p">[</span><span class="n">obj</span> <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">obj</span> <span class="ow">in</span> <span class="n">inspect</span><span class="o">.</span><span class="n">getmembers</span><span class="p">(</span><span class="n">game</span><span class="p">)</span>
+                     <span class="k">if</span> <span class="n">inspect</span><span class="o">.</span><span class="n">isclass</span><span class="p">(</span><span class="n">obj</span><span class="p">)]</span>
+    <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">games_classes</span><span class="p">:</span>
+        <span class="n">parsed_values</span> <span class="o">=</span> <span class="n">c</span><span class="o">.</span><span class="n">parse_value</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="n">player_number</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">parsed_values</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">c</span><span class="p">(</span><span class="n">parsed_values</span><span class="p">,</span> <span class="n">time_horizon</span><span class="p">)</span>
+    <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s2">&quot;Unparsable game&quot;</span><span class="p">)</span></div>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper"><div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <div><input type="text" name="q" /></div>
+      <div><input type="submit" value="Go" /></div>
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2016, Lorenzo Bisi.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.5.1</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.9</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

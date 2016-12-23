@@ -1,0 +1,307 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>source.player &#8212; onlineSG  documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true,
+        SOURCELINK_SUFFIX: '.txt'
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head>
+  <body role="document">
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for source.player</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span> <span class="nn">random</span> <span class="k">import</span> <span class="n">uniform</span><span class="p">,</span> <span class="n">shuffle</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">re</span>
+
+
+<div class="viewcode-block" id="Player"><a class="viewcode-back" href="../../player.html#source.player.Player">[docs]</a><span class="k">class</span> <span class="nc">Player</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    It is the base class from which all players inherit. It implements the </span>
+<span class="sd">    default compute_strategy method (as a uniform player) and the </span>
+<span class="sd">    sample_strategy method.</span>
+
+<span class="sd">    Each subclass has class attributes (name and pattern) and a class method</span>
+<span class="sd">    (parse): they are used for the parsing of the player columns in the config </span>
+<span class="sd">    files.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;player&quot;</span>
+    <span class="n">pattern</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="s2">r&quot;^&quot;</span> <span class="o">+</span> <span class="n">name</span> <span class="o">+</span> <span class="s2">&quot;\d?$&quot;</span><span class="p">)</span>
+
+    <span class="nd">@classmethod</span>
+<div class="viewcode-block" id="Player.parse"><a class="viewcode-back" href="../../player.html#source.player.Player.parse">[docs]</a>    <span class="k">def</span> <span class="nf">parse</span><span class="p">(</span><span class="n">cls</span><span class="p">,</span> <span class="n">player_type</span><span class="p">,</span> <span class="n">game</span><span class="p">,</span> <span class="nb">id</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        This is the default</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">cls</span><span class="o">.</span><span class="n">pattern</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="n">player_type</span><span class="p">):</span>
+            <span class="n">args</span> <span class="o">=</span> <span class="p">[</span><span class="n">game</span><span class="p">,</span> <span class="nb">id</span><span class="p">]</span> <span class="o">+</span> <span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span>
+                                 <span class="n">player_type</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">cls</span><span class="o">.</span><span class="n">name</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;-&quot;</span><span class="p">)</span>
+                                 <span class="k">if</span> <span class="n">a</span> <span class="o">!=</span> <span class="s1">&#39;&#39;</span><span class="p">]</span>
+            <span class="k">return</span> <span class="n">cls</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span></div>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">game</span><span class="p">,</span> <span class="nb">id</span><span class="p">,</span> <span class="n">resources</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">game</span> <span class="o">=</span> <span class="n">game</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">id</span> <span class="o">=</span> <span class="nb">id</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">resources</span> <span class="o">=</span> <span class="n">resources</span>
+
+<div class="viewcode-block" id="Player.compute_strategy"><a class="viewcode-back" href="../../player.html#source.player.Player.compute_strategy">[docs]</a>    <span class="k">def</span> <span class="nf">compute_strategy</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        set a probability distribution over the targets</span>
+<span class="sd">        default: uniform strategy</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">targets_number</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">game</span><span class="o">.</span><span class="n">values</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">resources</span> <span class="o">/</span> <span class="n">targets_number</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">targets_number</span><span class="p">)]</span></div>
+
+<div class="viewcode-block" id="Player.sample_strategy"><a class="viewcode-back" href="../../player.html#source.player.Player.sample_strategy">[docs]</a>    <span class="k">def</span> <span class="nf">sample_strategy</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        sample a move from the computed distribution</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">targets</span> <span class="o">=</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">game</span><span class="o">.</span><span class="n">values</span><span class="p">))</span>
+        <span class="n">strategy</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">game</span><span class="o">.</span><span class="n">strategy_history</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="bp">self</span><span class="o">.</span><span class="n">id</span><span class="p">]</span>
+        <span class="n">sample</span> <span class="o">=</span> <span class="p">[</span><span class="n">uniform</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">strategy</span><span class="p">[</span><span class="n">i</span><span class="p">])</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">targets</span><span class="p">]</span>
+        <span class="n">selected_targets</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">targets</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">k</span><span class="p">:</span> <span class="n">sample</span><span class="p">[</span><span class="n">k</span><span class="p">],</span>
+                                  <span class="n">reverse</span><span class="o">=</span><span class="kc">True</span><span class="p">)[:</span><span class="bp">self</span><span class="o">.</span><span class="n">resources</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">selected_targets</span></div></div>
+
+
+<span class="k">class</span> <span class="nc">Defender</span><span class="p">(</span><span class="n">Player</span><span class="p">):</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;defender&quot;</span>
+    <span class="n">pattern</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="s2">r&quot;^&quot;</span> <span class="o">+</span> <span class="n">name</span> <span class="o">+</span> <span class="s2">&quot;\d?$&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">game</span><span class="p">,</span> <span class="nb">id</span><span class="p">,</span> <span class="n">resources</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;&quot;</span>
+<span class="sd">        Attributes</span>
+
+<span class="sd">        feedbacks   list of targets dict with feedbacks for each turn</span>
+<span class="sd">                    (if any)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">__init__</span><span class="p">(</span><span class="n">game</span><span class="p">,</span> <span class="nb">id</span><span class="p">,</span> <span class="n">resources</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">feedbacks</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="k">def</span> <span class="nf">receive_feedback</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">feedback</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">feedbacks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">feedback</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="Attacker"><a class="viewcode-back" href="../../player.html#source.player.Attacker">[docs]</a><span class="k">class</span> <span class="nc">Attacker</span><span class="p">(</span><span class="n">Player</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    The Attacker base class from which all the attacker inherit: it implements</span>
+<span class="sd">    the best_respond method which is used by many types of adversaries.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="Attacker.best_respond"><a class="viewcode-back" href="../../player.html#source.player.Attacker.best_respond">[docs]</a>    <span class="k">def</span> <span class="nf">best_respond</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">strategies</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Compute the pure strategy that best respond to a given dict of</span>
+<span class="sd">        defender strategies</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">targets</span> <span class="o">=</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">game</span><span class="o">.</span><span class="n">values</span><span class="p">))</span>
+
+        <span class="c1"># compute total probability of being covered for each target (c[t])</span>
+        <span class="n">defenders_strategies</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">strategies</span><span class="p">[</span><span class="n">d</span><span class="p">])</span>
+                                <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">game</span><span class="o">.</span><span class="n">defenders</span><span class="p">]</span>
+
+        <span class="c1"># (sum the probabilities of differents defenders)</span>
+        <span class="n">not_norm_coverage</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">defenders_strategies</span><span class="p">)</span>
+
+        <span class="c1"># normalize</span>
+        <span class="n">coverage</span> <span class="o">=</span> <span class="n">not_norm_coverage</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">not_norm_coverage</span><span class="p">,</span>
+                                                      <span class="nb">ord</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+        <span class="c1"># compute the expected value of each target (v[t]*(1-c[t]))</span>
+        <span class="n">values</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">game</span><span class="o">.</span><span class="n">values</span><span class="p">[</span><span class="n">t</span><span class="p">][</span><span class="bp">self</span><span class="o">.</span><span class="n">id</span><span class="p">]</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">targets</span><span class="p">])</span>
+        <span class="n">expected_payoffs</span> <span class="o">=</span> <span class="n">values</span> <span class="o">*</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">targets</span><span class="p">))</span> <span class="o">-</span> <span class="n">coverage</span><span class="p">)</span>
+
+        <span class="c1"># play the argmax</span>
+        <span class="n">selected_targets</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">targets</span><span class="p">,</span>
+                                  <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">t</span><span class="p">:</span> <span class="n">expected_payoffs</span><span class="p">[</span><span class="n">t</span><span class="p">],</span>
+                                  <span class="n">reverse</span><span class="o">=</span><span class="kc">True</span><span class="p">)[:</span><span class="bp">self</span><span class="o">.</span><span class="n">resources</span><span class="p">]</span>
+        <span class="k">return</span> <span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">t</span> <span class="ow">in</span> <span class="n">selected_targets</span><span class="p">)</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">targets</span><span class="p">]</span></div></div>
+
+
+<div class="viewcode-block" id="StackelbergAttacker"><a class="viewcode-back" href="../../player.html#source.player.StackelbergAttacker">[docs]</a><span class="k">class</span> <span class="nc">StackelbergAttacker</span><span class="p">(</span><span class="n">Attacker</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    The Stackelberg attacker observes the Defender strategy and plays a pure</span>
+<span class="sd">    strategy that best responds to it.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;stackelberg&quot;</span>
+    <span class="n">pattern</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="s2">r&quot;^&quot;</span> <span class="o">+</span> <span class="n">name</span> <span class="o">+</span> <span class="s2">&quot;\d?$&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">compute_strategy</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">best_respond</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">game</span><span class="o">.</span><span class="n">strategy_history</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span></div>
+
+
+<div class="viewcode-block" id="DumbAttacker"><a class="viewcode-back" href="../../player.html#source.player.DumbAttacker">[docs]</a><span class="k">class</span> <span class="nc">DumbAttacker</span><span class="p">(</span><span class="n">Attacker</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    The Dumb attacker, given an initially choosen action, always plays itp</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;dumb&quot;</span>
+    <span class="n">pattern</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="s2">r&quot;^&quot;</span> <span class="o">+</span> <span class="n">name</span> <span class="o">+</span> <span class="s2">&quot;\d?$&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">game</span><span class="p">,</span> <span class="nb">id</span><span class="p">,</span> <span class="n">resources</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">choice</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">__init__</span><span class="p">(</span><span class="n">game</span><span class="p">,</span> <span class="nb">id</span><span class="p">,</span> <span class="n">resources</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">choice</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">choice</span><span class="p">)</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">resources</span><span class="p">:</span>
+            <span class="n">shuffled_targets</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">game</span><span class="o">.</span><span class="n">values</span><span class="p">)))</span>
+            <span class="n">shuffle</span><span class="p">(</span><span class="n">shuffled_targets</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">choice</span> <span class="o">=</span> <span class="n">shuffled_targets</span><span class="p">[:</span><span class="n">resources</span><span class="p">]</span>
+
+    <span class="k">def</span> <span class="nf">compute_strategy</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">targets</span> <span class="o">=</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">game</span><span class="o">.</span><span class="n">values</span><span class="p">))</span>
+        <span class="k">return</span> <span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">t</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">choice</span><span class="p">)</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">targets</span><span class="p">]</span></div>
+
+
+<div class="viewcode-block" id="FictiousPlayerAttacker"><a class="viewcode-back" href="../../player.html#source.player.FictiousPlayerAttacker">[docs]</a><span class="k">class</span> <span class="nc">FictiousPlayerAttacker</span><span class="p">(</span><span class="n">Attacker</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    The fictitious player computes the empirical distribution of the adversary</span>
+<span class="sd">    move and then best respond to it. When it starts it has a vector of weights</span>
+<span class="sd">    for each target and at each round the plays the inverse of that weight </span>
+<span class="sd">    normalized to the weights sum. Then he observe the opponent&#39;s move and </span>
+<span class="sd">    update the weights acconding to it.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;fictitious&quot;</span>
+    <span class="n">pattern</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="s2">r&quot;^&quot;</span> <span class="o">+</span> <span class="n">name</span> <span class="o">+</span> <span class="s2">r&quot;\d?(-\d)?$&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">game</span><span class="p">,</span> <span class="nb">id</span><span class="p">,</span> <span class="n">resources</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">initial_weight</span><span class="o">=</span><span class="mi">10</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">__init__</span><span class="p">(</span><span class="n">game</span><span class="p">,</span> <span class="nb">id</span><span class="p">,</span> <span class="n">resources</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">weights</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">initial_weight</span> <span class="o">=</span> <span class="n">initial_weight</span>
+
+<div class="viewcode-block" id="FictiousPlayerAttacker.compute_strategy"><a class="viewcode-back" href="../../player.html#source.player.FictiousPlayerAttacker.compute_strategy">[docs]</a>    <span class="k">def</span> <span class="nf">compute_strategy</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Add 1 to the weight of each covered target in the defender profile</span>
+<span class="sd">        at each round: then best respond to the computed strategy</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">game</span><span class="o">.</span><span class="n">history</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">game</span><span class="o">.</span><span class="n">defenders</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">game</span><span class="o">.</span><span class="n">history</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="n">d</span><span class="p">]:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">weights</span><span class="p">[</span><span class="n">d</span><span class="p">][</span><span class="n">t</span><span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">targets</span> <span class="o">=</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">game</span><span class="o">.</span><span class="n">values</span><span class="p">))</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">weights</span> <span class="o">=</span> <span class="p">{</span><span class="n">d</span><span class="p">:</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">initial_weight</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">targets</span><span class="p">]</span>
+                            <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">game</span><span class="o">.</span><span class="n">defenders</span><span class="p">}</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">best_respond</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">weights</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="StUDefender"><a class="viewcode-back" href="../../player.html#source.player.StUDefender">[docs]</a><span class="k">class</span> <span class="nc">StUDefender</span><span class="p">(</span><span class="n">Defender</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    This defender is able to distinguish between a uniform</span>
+<span class="sd">    or a stackelberg attacker and best respond accordingly</span>
+
+<span class="sd">    This is only an example: from our computation in fact against these two</span>
+<span class="sd">    kind of adversaries there is no interests in distinguish between them:</span>
+<span class="sd">    in fact playing always the best response to a stackelberg player does not</span>
+<span class="sd">    generate any regret.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;stu_defender&quot;</span>
+    <span class="n">pattern</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="s2">r&quot;^&quot;</span> <span class="o">+</span> <span class="n">name</span> <span class="o">+</span> <span class="s2">&quot;\d?$&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">game</span><span class="p">,</span> <span class="nb">id</span><span class="p">,</span> <span class="n">resources</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">confidence</span><span class="o">=</span><span class="mf">0.9</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">__init__</span><span class="p">(</span><span class="n">game</span><span class="p">,</span> <span class="nb">id</span><span class="p">,</span> <span class="n">resources</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">confidence</span> <span class="o">=</span> <span class="n">confidence</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mock_stackelberg</span> <span class="o">=</span> <span class="n">StackelbergAttacker</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">game</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">belief</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;uniform&#39;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+                       <span class="s1">&#39;stackelberg&#39;</span><span class="p">:</span> <span class="mi">0</span><span class="p">}</span>
+
+    <span class="k">def</span> <span class="nf">compute_strategy</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">game</span><span class="o">.</span><span class="n">history</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">belief</span><span class="p">[</span><span class="s1">&#39;stackelberg&#39;</span><span class="p">]:</span>
+            <span class="n">last_move</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">game</span><span class="o">.</span><span class="n">history</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="mi">1</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">mock_move</span> <span class="o">=</span> <span class="p">[</span><span class="n">i</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">mock_stackelberg</span><span class="o">.</span><span class="n">compute_strategy</span><span class="p">()</span>
+                         <span class="k">if</span> <span class="n">i</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">last_move</span> <span class="o">==</span> <span class="n">mock_move</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">belief</span><span class="p">[</span><span class="s1">&#39;uniform&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">belief</span><span class="p">[</span><span class="s1">&#39;uniform&#39;</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">game</span><span class="o">.</span><span class="n">values</span><span class="p">))</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">belief</span><span class="p">[</span><span class="s1">&#39;stackelberg&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">belief</span><span class="p">[</span><span class="s1">&#39;uniform&#39;</span><span class="p">]</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">belief</span><span class="p">[</span><span class="s1">&#39;uniform&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">belief</span><span class="p">[</span><span class="s1">&#39;stackelberg&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">belief</span><span class="p">[</span><span class="s1">&#39;stackelberg&#39;</span><span class="p">]:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">br_stackelberg</span><span class="p">()</span>  <span class="c1"># minimax in two players game</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">br_uniform</span><span class="p">()</span>  <span class="c1"># highest value action</span>
+
+    <span class="k">def</span> <span class="nf">br_uniform</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">targets</span> <span class="o">=</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">game</span><span class="o">.</span><span class="n">values</span><span class="p">))</span>
+        <span class="n">max_target</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">targets</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">game</span><span class="o">.</span><span class="n">values</span><span class="p">[</span><span class="n">x</span><span class="p">][</span><span class="mi">0</span><span class="p">])</span>
+        <span class="k">return</span> <span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">i</span> <span class="o">==</span> <span class="n">max_target</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">targets</span><span class="p">]</span>
+
+    <span class="k">def</span> <span class="nf">br_stackelberg</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>  <span class="c1"># &lt;------   WRONG: implement using a linear program</span>
+        <span class="n">targets</span> <span class="o">=</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">game</span><span class="o">.</span><span class="n">values</span><span class="p">))</span>
+        <span class="n">max_target</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">targets</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">game</span><span class="o">.</span><span class="n">values</span><span class="p">[</span><span class="n">x</span><span class="p">][</span><span class="mi">0</span><span class="p">])</span>
+        <span class="k">return</span> <span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">i</span> <span class="o">==</span> <span class="n">max_target</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">targets</span><span class="p">]</span></div>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper"><div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <div><input type="text" name="q" /></div>
+      <div><input type="submit" value="Go" /></div>
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2016, Lorenzo Bisi.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.5.1</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.9</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

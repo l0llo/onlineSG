@@ -1,0 +1,136 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Parsers &#8212; onlineSG  documentation</title>
+    
+    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    './',
+        VERSION:     '',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true,
+        SOURCELINK_SUFFIX: '.txt'
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Runner" href="runner.html" />
+    <link rel="prev" title="Environment" href="environment.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head>
+  <body role="document">
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="module-source.parsers">
+<span id="parsers"></span><h1>Parsers<a class="headerlink" href="#module-source.parsers" title="Permalink to this headline">¶</a></h1>
+<dl class="class">
+<dt id="source.parsers.Parser">
+<em class="property">class </em><code class="descclassname">source.parsers.</code><code class="descname">Parser</code><span class="sig-paren">(</span><em>csv_file_path</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/source/parsers.html#Parser"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#source.parsers.Parser" title="Permalink to this definition">¶</a></dt>
+<dd><p>Attributes
+df                  the pandas dataframe corresponding to the</p>
+<blockquote>
+<div>config file gives as input</div></blockquote>
+<p>targets_headers     as below
+attackers_headers   as below
+defenders_headers   the relative dataframe header</p>
+<dl class="method">
+<dt id="source.parsers.Parser.parse_row">
+<code class="descname">parse_row</code><span class="sig-paren">(</span><em>index</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/source/parsers.html#Parser.parse_row"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#source.parsers.Parser.parse_row" title="Permalink to this definition">¶</a></dt>
+<dd><p>returns a game object from the row at the specified index of the config
+file.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="function">
+<dt id="source.parsers.parse_player">
+<code class="descclassname">source.parsers.</code><code class="descname">parse_player</code><span class="sig-paren">(</span><em>player_type</em>, <em>game</em>, <em>id</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/source/parsers.html#parse_player"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#source.parsers.parse_player" title="Permalink to this definition">¶</a></dt>
+<dd><p>tries to parse the player_type calling the parse class method of all the
+classes of player module, and returns a Player or a subclass; otherwise 
+raises an exception</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="source.parsers.parse_game">
+<code class="descclassname">source.parsers.</code><code class="descname">parse_game</code><span class="sig-paren">(</span><em>values</em>, <em>player_number</em>, <em>time_horizon</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/source/parsers.html#parse_game"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#source.parsers.parse_game" title="Permalink to this definition">¶</a></dt>
+<dd><p>tries to parse the values calling the parse class method of all the
+classes of game module, and then return a game; otherwise raises an 
+exception</p>
+</dd></dl>
+
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper"><div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="environment.html" title="previous chapter">Environment</a></li>
+      <li>Next: <a href="runner.html" title="next chapter">Runner</a></li>
+  </ul></li>
+</ul>
+</div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/parsers.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <div><input type="text" name="q" /></div>
+      <div><input type="submit" value="Go" /></div>
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2016, Lorenzo Bisi.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.5.1</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.9</a>
+      
+      |
+      <a href="_sources/parsers.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

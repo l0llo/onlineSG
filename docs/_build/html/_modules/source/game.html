@@ -1,0 +1,215 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>source.game &#8212; onlineSG  documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true,
+        SOURCELINK_SUFFIX: '.txt'
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head>
+  <body role="document">
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for source.game</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span> <span class="nn">source.player</span> <span class="k">import</span> <span class="n">Player</span>
+<span class="kn">from</span> <span class="nn">functools</span> <span class="k">import</span> <span class="n">reduce</span>
+<span class="kn">from</span> <span class="nn">operator</span> <span class="k">import</span> <span class="n">and_</span>
+<span class="kn">import</span> <span class="nn">re</span>
+<span class="kn">import</span> <span class="nn">numbers</span>
+
+
+<div class="viewcode-block" id="Game"><a class="viewcode-back" href="../../game.html#source.game.Game">[docs]</a><span class="k">class</span> <span class="nc">Game</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">value_patterns</span> <span class="o">=</span> <span class="p">[</span><span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="s2">r&quot;^\d$&quot;</span><span class="p">),</span>
+                      <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="s2">r&quot;^\(\d( \d)+\)$&quot;</span><span class="p">)]</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">parse_value</span><span class="p">(</span><span class="n">cls</span><span class="p">,</span> <span class="n">values</span><span class="p">,</span> <span class="n">players_number</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">reduce</span><span class="p">(</span><span class="n">and_</span><span class="p">,</span> <span class="p">[</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">numbers</span><span class="o">.</span><span class="n">Number</span><span class="p">)</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">values</span><span class="p">]):</span>
+            <span class="k">return</span> <span class="p">[[</span><span class="n">v</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">players_number</span><span class="p">)]</span>
+                    <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">values</span><span class="p">]</span>
+        <span class="k">elif</span> <span class="n">reduce</span><span class="p">(</span><span class="n">and_</span><span class="p">,</span> <span class="p">[</span><span class="n">cls</span><span class="o">.</span><span class="n">value_patterns</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+                           <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">values</span><span class="p">]):</span>
+            <span class="n">value_tuples</span> <span class="o">=</span> <span class="p">[[</span><span class="nb">int</span><span class="p">(</span><span class="n">i</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">v</span><span class="o">.</span><span class="n">strip</span><span class="p">(</span><span class="s2">&quot;()&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39; &#39;</span><span class="p">)]</span>
+                            <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">values</span><span class="p">]</span>
+            <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">value_tuples</span><span class="p">:</span>
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">value_tuples</span><span class="p">[</span><span class="mi">0</span><span class="p">]):</span>
+                    <span class="k">return</span> <span class="kc">None</span>  <span class="c1"># or is better to raise an Exception?</span>
+            <span class="k">return</span> <span class="n">value_tuples</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">payoffs</span><span class="p">,</span> <span class="n">time_horizon</span><span class="p">):</span>
+
+        <span class="c1">#: tuple with a tuple for each target with the values for each</span>
+        <span class="c1">#: player</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">values</span> <span class="o">=</span> <span class="n">payoffs</span>
+        <span class="c1">#:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">time_horizon</span> <span class="o">=</span> <span class="n">time_horizon</span>
+        <span class="c1">#: dict of players indexed by integers</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">players</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+        <span class="c1">#: list of attackers&#39; indexes</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">attackers</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="c1">#: list of defenders&#39; indexes</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">defenders</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="c1">#: list of dict for each turn: each one is made by the</span>
+        <span class="c1">#: moves of the players (each move is a tuple of choosen targets</span>
+        <span class="c1">#: indexes)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">history</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">strategy_history</span> <span class="o">=</span> <span class="p">[]</span>
+
+<div class="viewcode-block" id="Game.set_players"><a class="viewcode-back" href="../../game.html#source.game.Game.set_players">[docs]</a>    <span class="k">def</span> <span class="nf">set_players</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">defenders</span><span class="p">,</span> <span class="n">attackers</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        run this method to add new players to</span>
+<span class="sd">        the game</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">old_players_length</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">players</span><span class="p">)</span>
+        <span class="n">players</span> <span class="o">=</span> <span class="n">defenders</span> <span class="o">+</span> <span class="n">attackers</span>
+        <span class="k">for</span> <span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">p</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">players</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">players</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="n">old_players_length</span><span class="p">]</span> <span class="o">=</span> <span class="n">p</span>
+        <span class="n">end_defenders</span> <span class="o">=</span> <span class="n">old_players_length</span> <span class="o">+</span> <span class="nb">len</span><span class="p">(</span><span class="n">defenders</span><span class="p">)</span>
+        <span class="n">end_attackers</span> <span class="o">=</span> <span class="n">end_defenders</span> <span class="o">+</span> <span class="nb">len</span><span class="p">(</span><span class="n">attackers</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">defenders</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">old_players_length</span><span class="p">,</span>
+                                         <span class="n">end_defenders</span><span class="p">)))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">attackers</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">end_defenders</span><span class="p">,</span>
+                                         <span class="n">end_attackers</span><span class="p">)))</span></div>
+
+    <span class="k">def</span> <span class="nf">play_game</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">time_horizon</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">play_turn</span><span class="p">()</span>
+
+<div class="viewcode-block" id="Game.get_player_payoffs"><a class="viewcode-back" href="../../game.html#source.game.Game.get_player_payoffs">[docs]</a>    <span class="k">def</span> <span class="nf">get_player_payoffs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">player_index</span><span class="p">,</span> <span class="n">moves</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        It returns the utility of a player given a dict</span>
+<span class="sd">        of moves. Each move is a tuple of target indexes</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">covered_targets</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">t</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">defenders</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">moves</span><span class="p">[</span><span class="n">d</span><span class="p">])</span>
+
+        <span class="k">if</span> <span class="n">player_index</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">attackers</span><span class="p">:</span>
+            <span class="n">hit_targets</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">t</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">moves</span><span class="p">[</span><span class="n">player_index</span><span class="p">]</span>
+                              <span class="k">if</span> <span class="n">t</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">covered_targets</span><span class="p">)</span>
+            <span class="k">return</span> <span class="p">[</span><span class="n">v</span><span class="p">[</span><span class="n">player_index</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">i</span> <span class="ow">in</span> <span class="n">hit_targets</span><span class="p">)</span>
+                    <span class="k">for</span> <span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">values</span><span class="p">)]</span>
+        <span class="k">elif</span> <span class="n">player_index</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">defenders</span><span class="p">:</span>
+            <span class="n">all_hit_targets</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">t</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">attackers</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">moves</span><span class="p">[</span><span class="n">a</span><span class="p">]</span>
+                                  <span class="k">if</span> <span class="n">t</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">covered_targets</span><span class="p">)</span>
+            <span class="k">return</span> <span class="p">[</span><span class="o">-</span><span class="p">(</span><span class="n">v</span><span class="p">[</span><span class="n">player_index</span><span class="p">])</span> <span class="o">*</span> <span class="p">(</span><span class="n">i</span> <span class="ow">in</span> <span class="n">all_hit_targets</span><span class="p">)</span>
+                    <span class="k">for</span> <span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">values</span><span class="p">)]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span>
+                <span class="s2">&quot;Cannot compute utility for an index than does not exist&quot;</span>
+            <span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">get_last_turn_payoffs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">player_index</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_player_payoffs</span><span class="p">(</span><span class="n">player_index</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">history</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+
+    <span class="k">def</span> <span class="nf">is_finished</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">history</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">time_horizon</span></div>
+
+<span class="c1"># def play_turn(self):</span>
+
+<span class="c1">#     # Defenders compute strategies (it includes also computing rewards)</span>
+<span class="c1">#     self.strategy_history.append(dict())</span>
+<span class="c1">#     for d in self.defenders:</span>
+<span class="c1">#         self.strategy_history[-1][d] = self.players[d].compute_strategy()</span>
+
+<span class="c1">#     # Attackers possibly observe and compute strategies</span>
+<span class="c1">#     for a in self.attackers:</span>
+<span class="c1">#         self.strategy_history[-1][a] = self.players[a].compute_strategy()</span>
+
+<span class="c1">#     # Players extract a sample from their strategies</span>
+<span class="c1">#     self.history.append(dict())</span>
+<span class="c1">#     for p in self.players:</span>
+<span class="c1">#         self.history[-1][p] = self.players[p].sample_strategy()</span>
+
+
+<span class="k">def</span> <span class="nf">main</span><span class="p">():</span>
+    <span class="n">g</span> <span class="o">=</span> <span class="n">Game</span><span class="p">(((</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">)),</span> <span class="mi">3</span><span class="p">)</span>
+    <span class="n">d</span> <span class="o">=</span> <span class="n">Player</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="n">a</span> <span class="o">=</span> <span class="n">Player</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="n">g</span><span class="o">.</span><span class="n">players</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">d</span>
+    <span class="n">g</span><span class="o">.</span><span class="n">players</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">a</span>
+    <span class="n">g</span><span class="o">.</span><span class="n">defenders</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">g</span><span class="o">.</span><span class="n">attackers</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">g</span><span class="o">.</span><span class="n">play_game</span><span class="p">()</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">history</span><span class="p">)</span>
+
+
+<span class="k">if</span> <span class="n">__name__</span> <span class="o">==</span> <span class="s1">&#39;__main__&#39;</span><span class="p">:</span>
+    <span class="n">main</span><span class="p">()</span>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper"><div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <div><input type="text" name="q" /></div>
+      <div><input type="submit" value="Go" /></div>
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2016, Lorenzo Bisi.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.5.1</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.9</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>
