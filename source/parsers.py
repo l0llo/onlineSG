@@ -13,6 +13,7 @@ class Parser:
     attackers_headers   as below
     defenders_headers   the relative dataframe header
     """
+
     def __init__(self, csv_file_path):
         self.df = pd.read_csv(csv_file_path)
         self.targets_headers = []
@@ -60,7 +61,7 @@ def parse_player(player_type, game, id):
     raises an exception
     """
     players_classes = [obj for name, obj in inspect.getmembers(player)
-                       if inspect.isclass(obj)]
+                       if inspect.isclass(obj) and issubclass(obj, player.Player)]
     for c in players_classes:
         parsed = c.parse(player_type, game, id)
         if parsed:

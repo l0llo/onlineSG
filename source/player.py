@@ -1,4 +1,6 @@
-from random import uniform, shuffle
+# from random import uniform, shuffle
+import random
+import gurobipy
 import numpy as np
 import re
 
@@ -48,7 +50,7 @@ class Player:
         """
         targets = range(len(self.game.values))
         strategy = self.game.strategy_history[-1][self.id]
-        sample = [uniform(0, strategy[i]) for i in targets]
+        sample = [random.uniform(0, strategy[i]) for i in targets]
         selected_targets = sorted(targets, key=lambda k: sample[k],
                                   reverse=True)[:self.resources]
         return selected_targets
@@ -132,7 +134,7 @@ class DumbAttacker(Attacker):
         super().__init__(game, id, resources)
         if not choice or len(choice) != self.resources:
             shuffled_targets = list(range(len(self.game.values)))
-            shuffle(shuffled_targets)
+            random.shuffle(shuffled_targets)
             self.choice = shuffled_targets[:resources]
 
     def compute_strategy(self):
@@ -195,8 +197,8 @@ class StUDefender(Defender):
     def compute_strategy(self):
         if len(self.game.history) == 1 or self.belief['stackelberg']:
             last_move = self.game.history[-1][1][0]
-            mock_move = [i for i in self.mock_stackelberg.compute_strategy()
-                         if i][0]
+            mock_move = [i for (i, s) in enumerate(self.mock_stackelberg.compute_strategy())
+                         if s][0]
             if last_move == mock_move:
                 self.belief['uniform'] = self.belief['uniform'] * (1 / len(self.game.values))
                 self.belief['stackelberg'] = 1 - self.belief['uniform']
@@ -205,7 +207,7 @@ class StUDefender(Defender):
                 self.belief['stackelberg'] = 0
 
         if self.belief['stackelberg']:
-            self.br_stackelberg()  # minimax in two players game
+            return self.br_stackelberg()  # minimax in two players game
         else:
             return self.br_uniform()  # highest value action
 
@@ -214,7 +216,18 @@ class StUDefender(Defender):
         max_target = max(targets, key=lambda x: self.game.values[x][0])
         return [int(i == max_target) for i in targets]
 
-    def br_stackelberg(self):  # <------   WRONG: implement using a linear program
-        targets = range(len(self.game.values))
-        max_target = max(targets, key=lambda x: self.game.values[x][0])
-        return [int(i == max_target) for i in targets]
+    def br_stackelberg(self):
+        m = gurobipy.Model("SSG")
+        targets = list(range(len(self.game.values)))
+        strategy = []
+        for t in targets:
+            strategy.append(m.addVar(vtype=gurobipy.GRB.CONTINUOUS, name="x" + str(t)))
+        v = m.addVar(lb=-gurobipy.GRB.INFINITY, vtype=gurobipy.GRB.CONTINUOUS, name="v")
+        m.setObjective(v, gurobipy.GRB.MAXIMIZE)
+        for t in targets:
+            terms = [-self.game.values[t][self.id] * strategy[i]
+                     for i in targets if i != t]
+            m.addConstr(sum(terms) - v >= 0, "c" + str(t))
+        m.addConstr(sum(strategy) == 1, "c" + str(len(targets)))
+        m.optimize()
+        return [float(s.x) for s in strategy]
