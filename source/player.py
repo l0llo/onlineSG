@@ -229,5 +229,6 @@ class StUDefender(Defender):
                      for i in targets if i != t]
             m.addConstr(sum(terms) - v >= 0, "c" + str(t))
         m.addConstr(sum(strategy) == 1, "c" + str(len(targets)))
+        m.params.outputflag = 0
         m.optimize()
         return [float(s.x) for s in strategy]
