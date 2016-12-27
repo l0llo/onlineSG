@@ -4,6 +4,12 @@ class Environment:
         self.game = game
         self.agent_id = agent_id
 
+    def __str__(self):
+        return ''.join(["<", self.__class__.__name__, ">"])
+
+    def __repr__(self):
+        return ''.join(["<", self.__class__.__name__, ">"])
+
     def observe_strategy(self, strategy):
         # Agent strategy is stored
         self.game.strategy_history.append(dict())

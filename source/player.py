@@ -16,7 +16,7 @@ class Player:
     files.
     """
     name = "player"
-    pattern = re.compile(r"^" + name + "\d?$")
+    pattern = re.compile(r"^" + name + "\d*$")
 
     @classmethod
     def parse(cls, player_type, game, id):
@@ -55,10 +55,20 @@ class Player:
                                   reverse=True)[:self.resources]
         return selected_targets
 
+    def __str__(self):
+        return ''.join(["<", self.__class__.__name__,
+                        " id:", str(self.id),
+                        " resources:", str(self.resources), ">"])
+
+    def __repr__(self):
+        return ''.join(["<", self.__class__.__name__,
+                        " id:", str(self.id),
+                        " resources:", str(self.resources), ">"])
+
 
 class Defender(Player):
     name = "defender"
-    pattern = re.compile(r"^" + name + "\d?$")
+    pattern = re.compile(r"^" + name + "\d*$")
 
     def __init__(self, game, id, resources=1):
         """"
@@ -116,7 +126,7 @@ class StackelbergAttacker(Attacker):
     """
 
     name = "stackelberg"
-    pattern = re.compile(r"^" + name + "\d?$")
+    pattern = re.compile(r"^" + name + "\d*$")
 
     def compute_strategy(self):
         return self.best_respond(self.game.strategy_history[-1])
@@ -128,7 +138,7 @@ class DumbAttacker(Attacker):
     """
 
     name = "dumb"
-    pattern = re.compile(r"^" + name + "\d?$")
+    pattern = re.compile(r"^" + name + "\d*$")
 
     def __init__(self, game, id, resources=1, choice=None):
         super().__init__(game, id, resources)
@@ -151,7 +161,7 @@ class FictiousPlayerAttacker(Attacker):
     update the weights acconding to it.
     """
     name = "fictitious"
-    pattern = re.compile(r"^" + name + r"\d?(-\d)?$")
+    pattern = re.compile(r"^" + name + r"(\d+(-\d+))?$")
 
     def __init__(self, game, id, resources=1, initial_weight=10):
         super().__init__(game, id, resources)
@@ -185,7 +195,7 @@ class StUDefender(Defender):
     generate any regret.
     """
     name = "stu_defender"
-    pattern = re.compile(r"^" + name + "\d?$")
+    pattern = re.compile(r"^" + name + "\d*$")
 
     def __init__(self, game, id, resources=1, confidence=0.9):
         super().__init__(game, id, resources)

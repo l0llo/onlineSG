@@ -1,29 +1,34 @@
 from source.player import Player
 from functools import reduce
-from operator import and_
 import re
 import numbers
+from source.errors import NonHomogeneousTuplesError, TuplesWrongLenghtError
 
 
 class Game:
     """
     """
 
-    value_patterns = [re.compile(r"^\d$"),
-                      re.compile(r"^\(\d( \d)+\)$")]
+    value_patterns = [re.compile(r"^\d+$"),
+                      re.compile(r"^\(\d+( \d+)+\)$")]
 
     @classmethod
     def parse_value(cls, values, players_number):
-        if reduce(and_, [isinstance(v, numbers.Number) for v in values]):
+        if reduce(lambda x, y: x and y, [isinstance(v, numbers.Number)
+                                         for v in values]):
             return [[v for p in range(players_number)]
                     for v in values]
-        elif reduce(and_, [cls.value_patterns[1].match(v)
-                           for v in values]):
+        elif reduce(lambda x, y: x and y, [cls.value_patterns[0].match(v)
+                                           for v in values]):
+            return [[float(v) for p in range(players_number)]
+                    for v in values]
+        elif reduce(lambda x, y: x and y, [cls.value_patterns[1].match(v)
+                                           for v in values]):
             value_tuples = [[int(i) for i in v.strip("()").split(' ')]
                             for v in values]
             for v in value_tuples:
                 if len(v) != len(value_tuples[0]):
-                    return None  # or is better to raise an Exception?
+                    raise NonHomogeneousTuplesError
             return value_tuples
         else:
             return None
@@ -47,6 +52,16 @@ class Game:
         self.history = []
         self.strategy_history = []
 
+    def __str__(self):
+        return ''.join(["<", self.__class__.__name__,
+                        " values:", str(self.values),
+                        " time_horizon:", str(self.time_horizon), ">"])
+
+    def __repr__(self):
+        return ''.join(["<", self.__class__.__name__,
+                        " values:", str(self.values),
+                        " time_horizon:", str(self.time_horizon), ">"])
+
     def set_players(self, defenders, attackers):
         """
         run this method to add new players to
@@ -62,6 +77,8 @@ class Game:
                                          end_defenders)))
         self.attackers.extend(list(range(end_defenders,
                                          end_attackers)))
+        if len(self.values[0]) != len(players):
+            raise TuplesWrongLenghtError
 
     def play_game(self):
         for t in range(self.time_horizon):
