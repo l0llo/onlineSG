@@ -1,5 +1,6 @@
 import source.game as game
 import source.player as player
+from source.runner import Configuration
 import inspect
 import pandas as pd
 from source.errors import *
@@ -62,7 +63,7 @@ class Parser:
 def parse_player(player_type, game, id):
     """
     tries to parse the player_type calling the parse class method of all the
-    classes of player module, and returns a Player or a subclass; otherwise 
+    classes of player module, and returns a Player or a subclass; otherwise
     raises an exception
     """
     players_classes = [obj for name, obj in inspect.getmembers(player)

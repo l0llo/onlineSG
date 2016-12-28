@@ -45,3 +45,11 @@ class RowError(OSG_Error):
 
 class UnknownHeaderError(OSError):
     pass
+
+
+class FolderExistsError(OSError):
+    def __init__(self, value):
+        self.value = value
+
+    def __str__(self):
+        return "You have selected an existent folder name: " + repr(self.value)

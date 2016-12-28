@@ -55,11 +55,13 @@ class Game:
     def __str__(self):
         return ''.join(["<", self.__class__.__name__,
                         " values:", str(self.values),
+                        " players", str(self.players),
                         " time_horizon:", str(self.time_horizon), ">"])
 
     def __repr__(self):
         return ''.join(["<", self.__class__.__name__,
                         " values:", str(self.values),
+                        " players", str(self.players),
                         " time_horizon:", str(self.time_horizon), ">"])
 
     def set_players(self, defenders, attackers):
