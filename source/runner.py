@@ -1,4 +1,3 @@
-from source.parsers import *
 from source.environment import *
 from collections import namedtuple
 from os import listdir
@@ -6,6 +5,7 @@ from os.path import isfile, join
 from source.errors import UnknownHeaderError, RowError, FolderExistsError
 from copy import deepcopy
 from shutil import copyfile
+import source.parsers as parsers
 import random
 import os
 import pickle
@@ -69,7 +69,7 @@ class Batch:
 
     def __init__(self, name, results_folder_path):
         self.name = name
-        self.parser = Parser(name)
+        self.parser = parsers.Parser(name)
         self.configurations = []
         file_name = self.name.split("/")[-1].split(".")[0]
         self.results_folder_path = results_folder_path + "/" + file_name
@@ -123,8 +123,10 @@ class Configuration:
         self.results_folder_path = results_folder_path
         if not os.path.exists(self.results_folder_path):
             os.makedirs(self.results_folder_path)
-        with open("game", mode='w+b') as file:
-            pickle.dump(self.game, file)
+        pickle_file = self.results_folder_path + "/game"
+        json_file = self.results_folder_path + "/json.txt"
+        self.game.dump(pickle_file)
+        self.game.dumpjson(json_file)
 
     def run_an_experiment(self):
         seed = init_seed()
@@ -147,12 +149,6 @@ class Configuration:
         return ''.join(["<", self.__class__.__name__,
                         " game:", str(self.game),
                         " experiments:", str(self.experiments), ">"])
-
-
-def load_configuration(game_file, results_folder_path):
-    with open(game_file, mode='r+b') as file:
-        game = pickle.load(file)
-    return Configuration(game, results_folder_path)
 
 
 class Experiment:
@@ -187,6 +183,9 @@ class Experiment:
             key = "feedback target " + str(t)
             df[key] = [f[t] for f in self.agent.feedbacks]
         df.to_csv(folder + "/" + str(self.seed))
+        f = open(folder + "/seeds.txt", "a")
+        f.write(str(self.seed) + "\n")
+        f.close()
 
     def __str__(self):
         return ''.join(["<", self.__class__.__name__,

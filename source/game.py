@@ -3,6 +3,9 @@ from functools import reduce
 import re
 import numbers
 from source.errors import NonHomogeneousTuplesError, TuplesWrongLenghtError
+import pickle
+import json
+from json import JSONEncoder
 
 
 class Game:
@@ -113,6 +116,32 @@ class Game:
 
     def is_finished(self):
         return len(self.history) >= self.time_horizon
+
+    def dump(self, game_file):
+        with open(game_file, mode='w+b') as file:
+            pickle.dump(self, file)
+
+    def dumpjson(self, jsonfile):
+        with open(jsonfile, mode='w+') as f:
+            f.write(json.dumps(self, cls=AutoJSONEncoder,
+                               sort_keys=True, indent=4))
+
+    def _json(self):
+        return self.__dict__
+
+
+def load(game_file):
+    with open(game_file, mode='r+b') as file:
+        game = pickle.load(file)
+    return game
+
+
+class AutoJSONEncoder(JSONEncoder):
+    def default(self, obj):
+        try:
+            return obj._json()
+        except AttributeError:
+            return JSONEncoder.default(self, obj)
 
 # def play_turn(self):
 

@@ -3,6 +3,7 @@ import random
 import gurobipy
 import numpy as np
 import re
+from copy import deepcopy
 
 
 class Player:
@@ -64,6 +65,13 @@ class Player:
         return ''.join(["<", self.__class__.__name__,
                         " id:", str(self.id),
                         " resources:", str(self.resources), ">"])
+
+    def _json(self):
+        self_copy = deepcopy(self)
+        d = self_copy.__dict__
+        d.pop('game', None)
+        d["class_name"] = self.__class__.__name__
+        return d
 
 
 class Defender(Player):

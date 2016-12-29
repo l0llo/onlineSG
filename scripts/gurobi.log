@@ -1,0 +1,87 @@
+
+Gurobi 7.0.1 (linux64, Python) logging started Tue Dec 27 08:47:49 2016
+
+Optimize a model with 3 rows, 3 columns and 6 nonzeros
+Coefficient statistics:
+  Matrix range     [1e+00, 6e+00]
+  Objective range  [1e+00, 1e+00]
+  Bounds range     [0e+00, 0e+00]
+  RHS range        [1e+00, 1e+00]
+Presolve removed 2 rows and 1 columns
+Presolve time: 0.00s
+Presolved: 1 rows, 2 columns, 2 nonzeros
+
+Iteration    Objective       Primal Inf.    Dual Inf.      Time
+       0   -0.0000000e+00   3.750000e-01   0.000000e+00      0s
+       1   -2.7272727e+00   0.000000e+00   0.000000e+00      0s
+
+Solved in 1 iterations and 0.00 seconds
+Optimal objective -2.727272727e+00
+
+Gurobi 7.0.1 (linux64, Python) logging started Tue Dec 27 08:48:21 2016
+
+Optimize a model with 3 rows, 3 columns and 6 nonzeros
+Coefficient statistics:
+  Matrix range     [1e+00, 6e+00]
+  Objective range  [1e+00, 1e+00]
+  Bounds range     [0e+00, 0e+00]
+  RHS range        [1e+00, 1e+00]
+Presolve removed 2 rows and 1 columns
+Presolve time: 0.00s
+Presolved: 1 rows, 2 columns, 2 nonzeros
+
+Iteration    Objective       Primal Inf.    Dual Inf.      Time
+       0   -0.0000000e+00   3.750000e-01   0.000000e+00      0s
+       1   -2.7272727e+00   0.000000e+00   0.000000e+00      0s
+
+Solved in 1 iterations and 0.00 seconds
+Optimal objective -2.727272727e+00
+
+Gurobi 7.0.1 (linux64, Python) logging started Tue Dec 27 08:49:10 2016
+
+
+Gurobi 7.0.1 (linux64, Python) logging started Tue Dec 27 08:49:36 2016
+
+Optimize a model with 5 rows, 5 columns and 20 nonzeros
+Coefficient statistics:
+  Matrix range     [1e+00, 3e+00]
+  Objective range  [1e+00, 1e+00]
+  Bounds range     [0e+00, 0e+00]
+  RHS range        [1e+00, 1e+00]
+Presolve removed 1 rows and 0 columns
+Presolve time: 0.00s
+Presolved: 4 rows, 5 columns, 17 nonzeros
+
+Iteration    Objective       Primal Inf.    Dual Inf.      Time
+       0   -0.0000000e+00   2.250000e+00   0.000000e+00      0s
+       2   -1.5000000e+00   0.000000e+00   0.000000e+00      0s
+
+Solved in 2 iterations and 0.00 seconds
+Optimal objective -1.500000000e+00
+
+Gurobi 7.0.1 (linux64, Python) logging started Tue Dec 27 09:10:16 2016
+
+
+Gurobi 7.0.1 (linux64, Python) logging started Tue Dec 27 09:10:50 2016
+
+
+Gurobi 7.0.1 (linux64, Python) logging started Tue Dec 27 09:29:08 2016
+
+
+Gurobi 7.0.1 (linux64, Python) logging started Tue Dec 27 09:33:45 2016
+
+
+Gurobi 7.0.1 (linux64, Python) logging started Tue Dec 27 09:34:08 2016
+
+
+Gurobi 7.0.1 (linux64, Python) logging started Tue Dec 27 09:34:13 2016
+
+
+Gurobi 7.0.1 (linux64, Python) logging started Tue Dec 27 09:35:01 2016
+
+
+Gurobi 7.0.1 (linux64, Python) logging started Thu Dec 29 11:34:53 2016
+
+
+Gurobi 7.0.1 (linux64, Python) logging started Thu Dec 29 11:35:14 2016
+

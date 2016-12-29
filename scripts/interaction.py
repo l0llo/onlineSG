@@ -1,5 +1,10 @@
 import sys
-sys.path.append('../')
+# sys.path.append('../')  # uncomment to add the path to the onlineSG folder 
+# You have to change the path if you move this file.
+# Alternatevely add the onlineSG folder to your PYTHONPATH
+# e.g. On Linux add this line on .bashrc :
+# export PYTHONPATH="<absolute-path-to-onlineSG>:PYTHONPATH"
+# then you can use onlineSG library from everywhere
 
 import source.game as game
 import source.player as player
@@ -9,6 +14,7 @@ import source.runner as runner
 import numpy as np
 import pandas as pd
 from importlib import *
+from source.runner import Experiment
 
 
 def main(arguments):
@@ -23,7 +29,6 @@ def main(arguments):
     attacker = player.StackelbergAttacker(g, 1, 1)
     g.set_players([agent], [attacker])
     e = environment.Environment(g, 0)
-    time_horizon = 10
 
     for t in range(g.time_horizon):
         strategy = agent.compute_strategy()
@@ -49,7 +54,6 @@ def main2(arguments):
     attacker = player.Attacker(g, 1)
     g.set_players([agent], [attacker])
     e = environment.Environment(g, 0)
-    time_horizon = 10
 
     for t in range(g.time_horizon):
         strategy = agent.compute_strategy()
@@ -66,6 +70,25 @@ def main2(arguments):
         print("\t agent:", h[0], "\t attacker:", h[1])
 
 
+def main3(arguments):
+    """
+    You can take advantage also of the already implemented functions of
+    Experiment class
+    """
+    values = ((1, 1), (2, 2), (3, 3))
+    time_horizon = 10
+    g = game.Game(values, time_horizon)
+    agent = player.StUDefender(g, 0)
+    # attacker = player.StackelbergAttacker(g, 1)
+    attacker = player.Attacker(g, 1)
+    g.set_players([agent], [attacker])
+    experiment = Experiment(g)
+    experiment.run()
+    # select an existent folder to save the results
+    experiment.save_results(".")
+
+
 if __name__ == '__main__':
-    #main(sys.argv)
+    # main(sys.argv)
     main2(sys.argv)
+    # main3(sys.argv)

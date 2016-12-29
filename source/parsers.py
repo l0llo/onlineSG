@@ -1,6 +1,5 @@
 import source.game as game
 import source.player as player
-from source.runner import Configuration
 import inspect
 import pandas as pd
 from source.errors import *
