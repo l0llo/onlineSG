@@ -44,7 +44,7 @@ class Parser:
                           if isinstance(self.df[d].iloc[index], str)]
         values = [self.df[str(t)].iloc[index]
                   for t in self.targets_headers]
-        time_horizon = self.df["T"].iloc[index]
+        time_horizon = int(self.df["T"].iloc[index])
         player_number = len(attacker_types) + len(defender_types)
         try:
             game = parse_game(values, player_number, time_horizon)

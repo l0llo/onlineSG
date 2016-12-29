@@ -8,7 +8,6 @@ from shutil import copyfile
 import source.parsers as parsers
 import random
 import os
-import pickle
 import pandas as pd
 
 AbortedExperiment = namedtuple('AbortedAbortedExperiment', ['error', 'seed'])
@@ -18,7 +17,9 @@ AbortedBatch = namedtuple('AbortedBatch', ['error', 'file'])
 
 class Runner:
 
-    def __init__(self, batches_folder_path, results_folder_path):
+    def __init__(self, batches_folder_path,
+                 results_folder_path, print_results=True):
+        self.print_results = print_results
         files = [batches_folder_path + '/' + f
                  for f in listdir(batches_folder_path)
                  if isfile(join(batches_folder_path, f))]
@@ -30,7 +31,7 @@ class Runner:
         self.batches = []
         for f in files:
             try:
-                b = Batch(f, results_folder_path)
+                b = Batch(f, results_folder_path, self.print_results)
             except UnknownHeaderError as e:
                 print("Something is wrong with the headers of ", f)
                 self.batches.append(AbortedBatch(e, f))
@@ -67,7 +68,8 @@ class Runner:
 
 class Batch:
 
-    def __init__(self, name, results_folder_path):
+    def __init__(self, name, results_folder_path, print_results=True):
+        self.print_results = print_results
         self.name = name
         self.parser = parsers.Parser(name)
         self.configurations = []
@@ -82,7 +84,7 @@ class Batch:
             try:
                 game = self.parser.parse_row(row)
                 conf_path = self.results_folder_path + "/" + str(row)
-                c = Configuration(game, conf_path)
+                c = Configuration(game, conf_path, self.print_results)
                 self.configurations.append(c)
             except RowError as e:
                 print("Error in parsing row:", row, ": ", e)
@@ -117,7 +119,8 @@ def init_seed():
 
 class Configuration:
 
-    def __init__(self, game, results_folder_path):
+    def __init__(self, game, results_folder_path, print_results=True):
+        self.print_results = print_results
         self.game = game
         self.experiments = []
         self.results_folder_path = results_folder_path
@@ -128,13 +131,15 @@ class Configuration:
         self.game.dump(pickle_file)
         self.game.dumpjson(json_file)
 
-    def run_an_experiment(self):
-        seed = init_seed()
+    def run_an_experiment(self, seed=None):
+        if not seed:
+            seed = init_seed()
         game = deepcopy(self.game)
         experiment = Experiment(game, seed)
         try:
             experiment.run()
-            experiment.save_results(self.results_folder_path)
+            if self.print_results:
+                experiment.save_results(self.results_folder_path)
         except Exception as e:
             self.experiments.append(AbortedExperiment(e, seed))
         else:
@@ -153,7 +158,11 @@ class Configuration:
 
 class Experiment:
 
-    def __init__(self, game, seed=init_seed()):
+    def __init__(self, game, seed=None):
+        if not seed:
+            seed = init_seed()
+        else:
+            random.seed(seed)
         self.game = game
         self.environment = Environment(game, 0)
         self.agent = game.players[0]

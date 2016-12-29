@@ -160,7 +160,7 @@ class DumbAttacker(Attacker):
         return [int(t in self.choice) for t in targets]
 
 
-class FictiousPlayerAttacker(Attacker):
+class FictitiousPlayerAttacker(Attacker):
     """
     The fictitious player computes the empirical distribution of the adversary
     move and then best respond to it. When it starts it has a vector of weights
@@ -234,7 +234,7 @@ class StUDefender(Defender):
         max_target = max(targets, key=lambda x: self.game.values[x][0])
         return [int(i == max_target) for i in targets]
 
-    def br_stackelberg(self):
+    def br_stackelberg(self):  # This br should be computed once and then reused!!!
         m = gurobipy.Model("SSG")
         targets = list(range(len(self.game.values)))
         strategy = []
