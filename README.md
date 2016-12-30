@@ -1,6 +1,19 @@
 # onlineSG
 Code repository for the Thesis work on Online Learning Security Games by Lorenzo Bisi
 
+## Requirements:
+- packages required GUROBI
+    + for anaconda
+
+```
+conda config --add channels http://conda.anaconda.org/gurobi
+conda install gurobi
+```
+
+you also need to get a licence:
+
+- etc...
+
 ## What's new
 - serialization
 - results printing

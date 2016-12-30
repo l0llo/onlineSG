@@ -74,3 +74,6 @@ target/
 
 # experiments
 games/
+
+#gurobi
+gurobi.log
