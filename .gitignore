@@ -73,7 +73,7 @@ target/
 # *.html
 
 # experiments
-games/
+# games/
 
 #gurobi
 gurobi.log

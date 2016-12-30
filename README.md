@@ -14,6 +14,9 @@ you also need to get a licence:
 
 - etc...
 
+## Tutorial 
+coming soon on Tutorial.ipynb
+
 ## What's new
 - serialization
 - results printing
