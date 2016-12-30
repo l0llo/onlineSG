@@ -8,9 +8,9 @@ __pycache__/
 _build/doctrees
 _build/latex
 _build/pdf
-_static/
-_templates/
-_images/
+docs/_static/
+docs/_templates/
+docs/_images/
 docs/conf.py
 *.rst
 Makefile
@@ -70,7 +70,7 @@ target/
 
 
 .idea
-*.html
+# *.html
 
 # experiments
 games/
