@@ -43,13 +43,21 @@ class RowError(OSG_Error):
         return str(self.__cause__)
 
 
-class UnknownHeaderError(OSError):
+class UnknownHeaderError(OSG_Error):
     pass
 
 
-class FolderExistsError(OSError):
+class FolderExistsError(OSG_Error):
     def __init__(self, value):
         self.value = value
 
     def __str__(self):
         return "You have selected an existent folder name: " + repr(self.value)
+
+
+class NotAProbabilityError(OSG_Error):
+    def __init__(self, value):
+        self.value = value
+
+    def __str__(self):
+        return repr(self.value) + " is not a valid probability distribution"

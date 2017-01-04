@@ -4,6 +4,8 @@ import gurobipy
 import numpy as np
 import re
 from copy import deepcopy
+from math import log, sqrt
+from source.errors import NotAProbabilityError
 
 
 class Player:
@@ -91,6 +93,9 @@ class Defender(Player):
     def receive_feedback(self, feedback):
         self.feedbacks.append(feedback)
 
+    def last_reward(self):
+        return sum(self.feedbacks[-1].values())
+
 
 class Attacker(Player):
     """
@@ -101,7 +106,8 @@ class Attacker(Player):
     def best_respond(self, strategies):
         """
         Compute the pure strategy that best respond to a given dict of
-        defender strategies
+        defender strategies. 
+        Should it randomize over indifferent maximum actions?
         """
         targets = range(len(self.game.values))
 
@@ -192,6 +198,65 @@ class FictitiousPlayerAttacker(Attacker):
         return self.best_respond(self.weights)
 
 
+class StackelbergDefender(Defender):
+    def __init__(self, game, id, resources=1, confidence=0.9):
+        super().__init__(game, id, resources)
+        self.br_stackelberg_strategy = None
+        self.maxmin = None
+
+    def br_stackelberg(self):
+        if not self.br_stackelberg_strategy:
+            m = gurobipy.Model("SSG")
+            targets = list(range(len(self.game.values)))
+            strategy = []
+            for t in targets:
+                strategy.append(m.addVar(vtype=gurobipy.GRB.CONTINUOUS, name="x" + str(t)))
+            v = m.addVar(lb=-gurobipy.GRB.INFINITY, vtype=gurobipy.GRB.CONTINUOUS, name="v")
+            m.setObjective(v, gurobipy.GRB.MAXIMIZE)
+            for t in targets:
+                terms = [-self.game.values[t][self.id] * strategy[i]
+                         for i in targets if i != t]
+                m.addConstr(sum(terms) - v >= 0, "c" + str(t))
+            m.addConstr(sum(strategy) == 1, "c" + str(len(targets)))
+            m.params.outputflag = 0
+            m.optimize()
+            self.maxmin = v.x
+            self.br_stackelberg_strategy = [float(s.x) for s in strategy]
+        return self.br_stackelberg_strategy
+
+
+class StochasticDefender(Defender):
+
+    name = "stochastic_defender"
+    pattern = re.compile(r"^" + name + r"((\d+(\.\d+)?)+(-(\d+(\.\d+)?)+)+)?$")
+
+    @classmethod
+    def parse(cls, player_type, game, id):
+        if cls.pattern.match(player_type):
+            arguments = [float(a) for a in
+                         player_type.split(cls.name)[1].split("-")
+                         if a != '']
+            arguments[0] = int(arguments[0])
+            if (len(arguments) == len(game.values) + 1):
+                is_prob = round(sum(arguments[1:]), 3) == 1
+                if is_prob:
+                    args = [game, id] + arguments
+                    return cls(*args)
+                else:
+                    raise NotAProbabilityError(arguments[1:])
+
+    def __init__(self, game, id, resources, *distribution):
+        super().__init__(game, id, resources)
+        self.distribution = distribution
+
+    def br_stochastic(self):  # what if indifferent?
+        targets = range(len(self.game.values))
+        max_target = max(targets,
+                         key=lambda x:
+                         self.game.values[x][0] * self.distribution[x])
+        return [int(i == max_target) for i in targets]
+
+
 class StUDefender(Defender):
     """
     This defender is able to distinguish between a uniform
@@ -211,6 +276,7 @@ class StUDefender(Defender):
         self.mock_stackelberg = StackelbergAttacker(self.game, 1)
         self.belief = {'uniform': 1,
                        'stackelberg': 0}
+        self.br_stackelberg_strategy = None
 
     def compute_strategy(self):
         if len(self.game.history) == 1 or self.belief['stackelberg']:
@@ -234,19 +300,65 @@ class StUDefender(Defender):
         max_target = max(targets, key=lambda x: self.game.values[x][0])
         return [int(i == max_target) for i in targets]
 
-    def br_stackelberg(self):  # This br should be computed once and then reused!!!
-        m = gurobipy.Model("SSG")
-        targets = list(range(len(self.game.values)))
-        strategy = []
-        for t in targets:
-            strategy.append(m.addVar(vtype=gurobipy.GRB.CONTINUOUS, name="x" + str(t)))
-        v = m.addVar(lb=-gurobipy.GRB.INFINITY, vtype=gurobipy.GRB.CONTINUOUS, name="v")
-        m.setObjective(v, gurobipy.GRB.MAXIMIZE)
-        for t in targets:
-            terms = [-self.game.values[t][self.id] * strategy[i]
-                     for i in targets if i != t]
-            m.addConstr(sum(terms) - v >= 0, "c" + str(t))
-        m.addConstr(sum(strategy) == 1, "c" + str(len(targets)))
-        m.params.outputflag = 0
-        m.optimize()
-        return [float(s.x) for s in strategy]
+    def br_stackelberg(self):
+        if not self.br_stackelberg_strategy:
+            m = gurobipy.Model("SSG")
+            targets = list(range(len(self.game.values)))
+            strategy = []
+            for t in targets:
+                strategy.append(m.addVar(vtype=gurobipy.GRB.CONTINUOUS, name="x" + str(t)))
+            v = m.addVar(lb=-gurobipy.GRB.INFINITY, vtype=gurobipy.GRB.CONTINUOUS, name="v")
+            m.setObjective(v, gurobipy.GRB.MAXIMIZE)
+            for t in targets:
+                terms = [-self.game.values[t][self.id] * strategy[i]
+                         for i in targets if i != t]
+                m.addConstr(sum(terms) - v >= 0, "c" + str(t))
+            m.addConstr(sum(strategy) == 1, "c" + str(len(targets)))
+            m.params.outputflag = 0
+            m.optimize()
+            self.br_stackelberg_strategy = [float(s.x) for s in strategy]
+        return self.br_stackelberg_strategy
+
+
+class AWESOMS_UCB(StackelbergDefender, StochasticDefender):
+
+    name = "awesoms_ucb"
+    pattern = re.compile(r"^" + name + r"((\d+(\.\d+)?)+(-(\d+(\.\d+)?)+)+)?$")
+
+    @classmethod
+    def parse(cls, player_type, game, id):
+        if cls.pattern.match(player_type):
+            arguments = [float(a) for a in
+                         player_type.split(cls.name)[1].split("-")
+                         if a != '']
+            arguments[0] = int(arguments[0])
+            if (len(arguments) == len(game.values) + 1):
+                is_prob = round(sum(arguments[1:]), 3) == 1
+                if is_prob:
+                    args = [game, id] + arguments
+                    return cls(*args)
+                else:
+                    raise NotAProbabilityError(arguments[1:])
+
+    def __init__(self, game, id, resources, *distribution):
+        Defender.__init__(self, game, id, resources)
+        self.distribution = distribution
+        self.br_stackelberg_strategy = None
+        self.maxmin = None
+        self.stackelberg = True
+
+    def compute_strategy(self):
+        # if it is the first round then br to stackelberg
+        t = len(self.game.history)
+        if t < 2:
+            return self.br_stackelberg()
+        else:
+            # compute the new bound
+            if self.stackelberg:
+                bound = sqrt(2 * log(t) / t)
+                # check if it has been exceeded
+                average_reward = sum([sum(f.values()) for f in self.feedbacks]) / t
+                self.stackelberg = (self.maxmin - average_reward <= bound)
+                if self.stackelberg:
+                    return self.br_stackelberg()
+            return self.br_stochastic()
