@@ -2,6 +2,9 @@ import source.game as game
 import source.player as player
 import inspect
 import pandas as pd
+import source.players.attackers as attackers
+import source.players.base_defenders as base_defenders
+import source.players.defenders as defenders
 from source.errors import *
 
 
@@ -48,11 +51,11 @@ class Parser:
         player_number = len(attacker_types) + len(defender_types)
         try:
             game = parse_game(values, player_number, time_horizon)
-            defenders = [parse_player(d, game, j)
-                         for (j, d) in enumerate(defender_types)]
-            attackers = [parse_player(a, game, i + len(defenders))
-                         for (i, a) in enumerate(attacker_types)]
-            game.set_players(defenders, attackers)
+            defenders_ids = [parse_player(d, game, j)
+                             for (j, d) in enumerate(defender_types)]
+            attacker_ids = [parse_player(a, game, i + len(defenders_ids))
+                            for (i, a) in enumerate(attacker_types)]
+            game.set_players(defenders_ids, attacker_ids)
             return game
         except (UnparsableGameError, UnparsablePlayerError,
                 TuplesWrongLenghtError) as e:
@@ -65,8 +68,10 @@ def parse_player(player_type, game, id):
     classes of player module, and returns a Player or a subclass; otherwise
     raises an exception
     """
-    players_classes = [obj for name, obj in inspect.getmembers(player)
-                       if inspect.isclass(obj) and issubclass(obj, player.Player)]
+    players_classes = sum([get_classes(player),
+                           get_classes(attackers),
+                           get_classes(base_defenders),
+                           get_classes(defenders)], [])
     for c in players_classes:
         parsed = c.parse(player_type, game, id)
         if parsed:
@@ -91,3 +96,8 @@ def parse_game(values, player_number, time_horizon):
         except NonHomogeneousTuplesError as e:
             raise UnparsableGameError(values) from e
     raise UnparsableGameError(values)
+
+
+def get_classes(module):
+    return [c[1] for c in inspect.getmembers(module) 
+            if inspect.isclass(c[1]) and c[1].__module__ == module.__name__] 

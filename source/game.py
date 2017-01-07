@@ -19,7 +19,7 @@ class Game:
     def parse_value(cls, values, players_number):
         if reduce(lambda x, y: x and y, [isinstance(v, numbers.Number)
                                          for v in values]):
-            return [[v for p in range(players_number)]
+            return [[float(v) for p in range(players_number)]
                     for v in values]
         elif reduce(lambda x, y: x and y, [cls.value_patterns[0].match(v)
                                            for v in values]):
