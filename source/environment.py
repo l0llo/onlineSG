@@ -31,7 +31,11 @@ class Environment:
         targets = range(len(self.game.values))
         payoffs = self.game.get_last_turn_payoffs(self.agent_id)
         if feedback_type == "expert":
-            return {t: payoffs[t] for t in targets}
+            feedbacks = {t: payoffs[t] for t in targets}
+            feedbacks['total'] = sum(feedbacks.values())
+            return feedbacks
         elif feedback_type == "partial":
-            return {t: payoffs[t]
-                    for t in self.game.history[-1][self.agent_id]}
+            feedbacks = {t: payoffs[t]
+                         for t in self.game.history[-1][self.agent_id]}
+            feedbacks['total'] = sum(feedbacks.values())
+            return feedbacks

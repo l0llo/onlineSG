@@ -1,21 +1,17 @@
 import source.player as player
-from source.errors import NotAProbabilityError
 import source.players.attackers as attackers
 import source.players.base_defenders as base_defenders
-from math import log, sqrt
+import source.errors as errors
+from math import log, sqrt, exp
 import re
 import gurobipy
+import numpy as np
 
 
 class StUDefender(player.Defender):
     """
     This defender is able to distinguish between a uniform
     or a stackelberg attacker and best respond accordingly
-
-    This is only an example: from our computation in fact against these two
-    kind of adversaries there is no interests in distinguish between them:
-    in fact playing always the best response to a stackelberg player does not
-    generate any regret.
     """
     name = "stu_defender"
     pattern = re.compile(r"^" + name + "\d*$")
@@ -71,7 +67,7 @@ class AWESOMS_UCB(base_defenders.StackelbergDefender,
     Adapt When Everybody is Stochastic, Otherwise Move to Stackelberg
     with Upper Confidence Bound where p=t^(-4)
 
-    Defenderetection of Stackelberg-Known Stochastic 
+    Defender detection of Stackelberg-Known Stochastic
     """
 
     name = "awesoms_ucb"
@@ -83,16 +79,21 @@ class AWESOMS_UCB(base_defenders.StackelbergDefender,
             arguments = [float(a) for a in
                          player_type.split(cls.name)[1].split("-")
                          if a != '']
-            arguments[0] = int(arguments[0])
-            if (len(arguments) == len(game.values) + 1):
-                is_prob = round(sum(arguments[1:]), 3) == 1
-                if is_prob:
-                    args = [game, id] + arguments
-                    return cls(*args)
-                else:
-                    raise NotAProbabilityError(arguments[1:])
+            if not arguments:
+                return cls(game, id)
+            elif len(arguments) == 1:
+                return cls(game, id, int(arguments[0]))
+            else:
+                arguments[0] = int(arguments[0])
+                if (len(arguments) == len(game.values) + 1):
+                    is_prob = round(sum(arguments[1:]), 3) == 1
+                    if is_prob:
+                        args = [game, id] + arguments
+                        return cls(*args)
+                    else:
+                        raise errors.NotAProbabilityError(arguments[1:])
 
-    def __init__(self, game, id, resources, *distribution):
+    def __init__(self, game, id, resources=1, *distribution):
         player.Defender.__init__(self, game, id, resources)
         self.distribution = distribution
         self.br_stackelberg_strategy = None
@@ -141,3 +142,49 @@ class USD(base_defenders.UnknownStochasticDefender):
             return self.fpl_with_sampling()
         elif self.algorithm == "wm":
             return self.weighted_majority()
+
+
+class USD2(base_defenders.UnknownStochasticDefender):
+
+    name = "usd2"
+    pattern = re.compile(r"^" + name + r"-(fpl|fpls|wm)$")
+
+    @classmethod
+    def parse(cls, player_type, game, id):
+        if cls.pattern.match(player_type):
+            algorithm = player_type.split(cls.name)[1].split("-")[1]
+            args = [game, id, algorithm]
+            return cls(*args)
+
+    def __init__(self, game, id, algorithm="fpl"):
+        super().__init__(game, id)
+        self.algorithm = algorithm
+
+    def compute_strategy(self):
+        if self.game.history:
+            self.update_experts()
+        t = len(self.game.history)
+        if self.algorithm == "fpl":
+            return self.follow_the_perturbed_leader()
+        elif self.algorithm == "fpls":
+            if t > 2:
+                self.learning_rate = self.learning_rate * sqrt(t - 1) / sqrt(t)
+            return self.fpl_with_sampling()
+        elif self.algorithm == "wm":
+            return self.weighted_majority()
+
+    def weighted_majority(self):  # not great results..
+        if not self.game.history:
+            return self.br_uniform()
+        weights = []
+        time = len(self.game.history)
+        # learning rate updated
+        if time > 1:
+            self.learning_rate = self.learning_rate / (sqrt(time - 1)) * sqrt(time)
+        experts = list(range(len(self.game.values)))
+        for e in experts:
+            avg_reward = self.expert_tot_rewards[e] / time
+            weights.append(np.array(exp(self.learning_rate * avg_reward)))
+        weights = np.array(weights)
+        weights = weights / np.linalg.norm(weights, ord=1)  # normalization
+        return [float(w) for w in weights]

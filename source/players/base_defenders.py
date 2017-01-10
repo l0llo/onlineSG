@@ -1,5 +1,5 @@
 import source.player as player
-from source.errors import NotAProbabilityError
+import source.errors as errors
 from math import exp
 from copy import copy
 import random
@@ -13,7 +13,7 @@ class KnownStochasticDefender(player.Defender):
     """
 
     name = "stochastic_defender"
-    pattern = re.compile(r"^" + name + r"((\d+(\.\d+)?)+(-(\d+(\.\d+)?))+)?$")
+    pattern = re.compile(r"^" + name + r"(\d+(-\d+(\.\d+)?)*)?$")
 
     @classmethod
     def parse(cls, player_type, game, id):
@@ -21,18 +21,27 @@ class KnownStochasticDefender(player.Defender):
             arguments = [float(a) for a in
                          player_type.split(cls.name)[1].split("-")
                          if a != '']
-            arguments[0] = int(arguments[0])
-            if (len(arguments) == len(game.values) + 1):
-                is_prob = round(sum(arguments[1:]), 3) == 1
-                if is_prob:
-                    args = [game, id] + arguments
-                    return cls(*args)
-                else:
-                    raise NotAProbabilityError(arguments[1:])
+            if not arguments:
+                return cls(game, id)
+            elif len(arguments) == 1:
+                return cls(game, id, int(arguments[0]))
+            else:
+                arguments[0] = int(arguments[0])
+                if (len(arguments) == len(game.values) + 1):
+                    is_prob = round(sum(arguments[1:]), 3) == 1
+                    if is_prob:
+                        args = [game, id] + arguments
+                        return cls(*args)
+                    else:
+                        raise errors.NotAProbabilityError(arguments[1:])
 
-    def __init__(self, game, id, resources, *distribution):
+    def __init__(self, game, id, resources=1, *distribution):
         super().__init__(game, id, resources)
-        self.distribution = distribution
+        targets = list(range(len(game.values)))
+        if not distribution:
+            self.distribution = [1 / len(targets) for t in targets]
+        else:
+            self.distribution = distribution
 
     def compute_strategy(self):
         return self.br_stochastic()
@@ -54,7 +63,7 @@ class UnknownStochasticDefender(player.Defender):
     name = "unknown_stochastic_defender"
     pattern = re.compile(r"^" + name + r"(\d+(-(\d+(\.\d+)?))?)?$")
 
-    def __init__(self, game, id, resources=1, learning_rate=0.5):
+    def __init__(self, game, id, resources=1, learning_rate=1):
         super().__init__(game, id, resources)
         self.learning_rate = learning_rate  # not used yet
         experts = list(range(len(self.game.values)))
@@ -85,7 +94,7 @@ class UnknownStochasticDefender(player.Defender):
         #  time = len(self.game.history)
         for e in experts:
             noise = random.uniform(0, self.norm_const)  # / log(time)
-            perturbed_rewards[e] = self.expert_tot_rewards[e] + noise  # +: we have a reward, not of a loss
+            perturbed_rewards[e] = self.expert_tot_rewards[e] + noise * self.learning_rate  # +: we have a reward, not of a loss
         perturbed_leader = max(experts, key=lambda e: perturbed_rewards[e])
         return [int(e == perturbed_leader) for e in experts]
 
@@ -122,7 +131,11 @@ class UnknownStochasticDefender(player.Defender):
 
 
 class StackelbergDefender(player.Defender):
-    def __init__(self, game, id, resources=1, confidence=0.9):
+
+    name = "stackelberg_defender"
+    pattern = re.compile(r"^" + name + "\d*$")
+
+    def __init__(self, game, id, resources=1):
         super().__init__(game, id, resources)
         self.br_stackelberg_strategy = None
         self.maxmin = None

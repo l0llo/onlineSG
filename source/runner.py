@@ -3,14 +3,14 @@ from collections import namedtuple
 from os import listdir
 from os.path import isfile, join
 from source.errors import UnknownHeaderError, RowError, FolderExistsError
-from copy import deepcopy
+from copy import deepcopy, copy
 from shutil import copyfile
 import source.parsers as parsers
 import random
 import os
 import pandas as pd
 
-AbortedExperiment = namedtuple('AbortedAbortedExperiment', ['error', 'seed'])
+AbortedExperiment = namedtuple('AbortedExperiment', ['error', 'seed'])
 AbortedConfiguration = namedtuple('AbortedConfiguration', ['error', 'row'])
 AbortedBatch = namedtuple('AbortedBatch', ['error', 'file'])
 
@@ -99,6 +99,7 @@ class Batch:
             if isinstance(c, Configuration):
                 c.run_an_experiment()
 
+
     def __str__(self):
         str1 = ''.join(["<", self.__class__.__name__, " configurations:"])
         str2 = ''.join(["\n" + str(b) for b in self.configurations]) + ">"
@@ -130,6 +131,21 @@ class Configuration:
         json_file = self.results_folder_path + "/json.txt"
         self.game.dump(pickle_file)
         self.game.dumpjson(json_file)
+        self.stats = {}
+
+    def compute_stats(self):
+
+        self.stats['avg_total_rewards'] = sum([e.stats['total_rewards']
+                                               for e in self.experiments
+                                               if isinstance(e, Experiment)])
+        self.stats['avg_weak_regret'] = sum([e.stats['weak_regret']
+                                             for e in self.experiments
+                                             if isinstance(e, Experiment)])
+        exp_number = len([e for e in self.experiments 
+                          if isinstance(e, Experiment)])
+        if exp_number:
+            self.stats['avg_total_rewards'] /= exp_number
+            self.stats['avg_weak_regret'] /= exp_number
 
     def run_an_experiment(self, seed=None):
         if not seed:
@@ -141,19 +157,31 @@ class Configuration:
             if self.print_results:
                 experiment.save_results(self.results_folder_path)
         except Exception as e:
+            print("Something has gone wrong with the experiment: ", e)
             self.experiments.append(AbortedExperiment(e, seed))
         else:
             self.experiments.append(experiment)
+        self.compute_stats()
+
+    def results_of(self, index, start=None, end=None):
+        return self.experiments[index].results(self.results_folder_path,
+                                               start, end)
+
+    def all_results(self, start=None, end=None):
+        return [e.results(self.results_folder_path, start, end)
+                for e in experiments]
 
     def __str__(self):
         return ''.join(["<", self.__class__.__name__,
                         " game:", str(self.game),
-                        " experiments:", str(self.experiments), ">"])
+                        " experiments:", str(self.experiments),
+                        " stats:", str(self.stats), ">"])
 
     def __repr__(self):
         return ''.join(["<", self.__class__.__name__,
                         " game:", str(self.game),
-                        " experiments:", str(self.experiments), ">"])
+                        " experiments:", str(self.experiments),
+                        " stats:", str(self.stats), ">"])
 
 
 class Experiment:
@@ -167,6 +195,7 @@ class Experiment:
         self.environment = Environment(game, 0)
         self.agent = game.players[0]
         self.seed = seed
+        self.stats = None
 
     def run_interaction(self):
         strategy = self.agent.compute_strategy()
@@ -179,6 +208,7 @@ class Experiment:
     def run(self):
         while(not self.game.is_finished()):
             self.run_interaction()
+        self.compute_stats()
 
     def save_results(self, folder):
         df = pd.DataFrame()
@@ -191,15 +221,47 @@ class Experiment:
         for t in targets:
             key = "feedback target " + str(t)
             df[key] = [f[t] for f in self.agent.feedbacks]
+        df["total"] = [f['total'] for f in self.agent.feedbacks]
         df.to_csv(folder + "/" + str(self.seed))
         f = open(folder + "/seeds.txt", "a")
         f.write(str(self.seed) + "\n")
         f.close()
 
+    def results(self, folder, start=None, end=None):
+        return pd.read_csv(folder + "/" + str(self.seed), index_col=0).iloc[start:end]
+
+    def total_rewards(self):
+        return sum([f['total'] for f in self.agent.feedbacks])
+
+    def fixed_action_reward(self, a):
+        reward = 0
+        for h in self.game.history:
+            moves = copy(h)
+            moves[0] = [a]
+            reward += sum(self.game.get_player_payoffs(0, moves))
+        return reward
+
+    def best_action_in_hindsight(self):
+        actions = list(range(len(self.game.values)))
+        rewards = [self.fixed_action_reward(a) for a in actions]
+        best = max(actions, key=lambda x: rewards[x])
+        return (best, rewards[best])
+
+    def weak_regret(self):
+        return self.best_action_in_hindsight()[1] - self.total_rewards()
+
+    def compute_stats(self):
+        self.stats = {}
+        self.stats['total_rewards'] = self.total_rewards()
+        self.stats['best_action'] = self.best_action_in_hindsight()[0]
+        self.stats['weak_regret'] = self.weak_regret()
+
     def __str__(self):
         return ''.join(["<", self.__class__.__name__,
-                        " seed:", str(self.seed), ">"])
+                        " seed:", str(self.seed),
+                        " stats:", str(self.stats), ">"])
 
     def __repr__(self):
         return ''.join(["<", self.__class__.__name__,
-                        " seed:", str(self.seed), ">"])
+                        " seed:", str(self.seed),
+                        " stats:", str(self.stats), ">"])
