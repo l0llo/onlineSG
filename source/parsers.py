@@ -100,4 +100,4 @@ def parse_game(values, player_number, time_horizon):
 
 def get_classes(module):
     return [c[1] for c in inspect.getmembers(module) 
-            if inspect.isclass(c[1]) and c[1].__module__ == module.__name__] 
+            if inspect.isclass(c[1]) and c[1].__module__ == module.__name__]

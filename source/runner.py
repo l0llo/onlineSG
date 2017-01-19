@@ -6,12 +6,14 @@ from source.errors import UnknownHeaderError, RowError, FolderExistsError
 from copy import deepcopy, copy
 from shutil import copyfile
 import source.parsers as parsers
-import random
 import os
 import pandas as pd
+import sys
+import traceback
+import numpy as np
 
-AbortedExperiment = namedtuple('AbortedExperiment', ['error', 'seed'])
-AbortedConfiguration = namedtuple('AbortedConfiguration', ['error', 'row'])
+AbortedExperiment = namedtuple('AbortedExperiment', ['error', 'info', 'seed'])
+AbortedConfiguration = namedtuple('AbortedConfiguration', ['error', 'info', 'row'])
 AbortedBatch = namedtuple('AbortedBatch', ['error', 'file'])
 
 
@@ -88,17 +90,20 @@ class Batch:
                 self.configurations.append(c)
             except RowError as e:
                 print("Error in parsing row:", row, ": ", e)
-                self.configurations.append(AbortedConfiguration(error=e, row=row))
+                self.configurations.append(AbortedConfiguration(e,
+                                                                traceback.format_exc(),
+                                                                row))
             except Exception as e:
                 print("Something unexpected is happened in configuration ",
                       row, ": ", e)
-                self.configurations.append(AbortedConfiguration(error=e, row=row))
+                self.configurations.append(AbortedConfiguration(e,
+                                                                traceback.format_exc(),
+                                                                row))
 
     def run(self):
         for c in self.configurations:
             if isinstance(c, Configuration):
                 c.run_an_experiment()
-
 
     def __str__(self):
         str1 = ''.join(["<", self.__class__.__name__, " configurations:"])
@@ -112,9 +117,9 @@ class Batch:
 
 
 def init_seed():
-    random.seed()
-    seed = random.random()
-    random.seed(seed)
+    np.random.seed()
+    seed = np.random.randint(1000000)
+    np.random.seed(seed)
     return seed
 
 
@@ -125,7 +130,9 @@ class Configuration:
         self.game = game
         self.experiments = []
         self.results_folder_path = results_folder_path
-        if not os.path.exists(self.results_folder_path):
+        if os.path.exists(results_folder_path):
+            raise FolderExistsError(results_folder_path)
+        else:
             os.makedirs(self.results_folder_path)
         pickle_file = self.results_folder_path + "/game"
         json_file = self.results_folder_path + "/json.txt"
@@ -141,7 +148,7 @@ class Configuration:
         self.stats['avg_weak_regret'] = sum([e.stats['weak_regret']
                                              for e in self.experiments
                                              if isinstance(e, Experiment)])
-        exp_number = len([e for e in self.experiments 
+        exp_number = len([e for e in self.experiments
                           if isinstance(e, Experiment)])
         if exp_number:
             self.stats['avg_total_rewards'] /= exp_number
@@ -158,7 +165,9 @@ class Configuration:
                 experiment.save_results(self.results_folder_path)
         except Exception as e:
             print("Something has gone wrong with the experiment: ", e)
-            self.experiments.append(AbortedExperiment(e, seed))
+            self.experiments.append(AbortedExperiment(e,
+                                                      traceback.format_exc(),
+                                                      seed))
         else:
             self.experiments.append(experiment)
         self.compute_stats()
@@ -190,7 +199,7 @@ class Experiment:
         if not seed:
             seed = init_seed()
         else:
-            random.seed(seed)
+            np.random.seed(seed)
         self.game = game
         self.environment = Environment(game, 0)
         self.agent = game.players[0]
@@ -198,7 +207,7 @@ class Experiment:
         self.stats = None
 
     def run_interaction(self):
-        strategy = self.agent.compute_strategy()
+        strategy = self.agent.play_strategy()
         self.environment.observe_strategy(strategy)
         realization = self.agent.sample_strategy()
         self.environment.observe_realization(realization)
@@ -206,6 +215,8 @@ class Experiment:
         self.agent.receive_feedback(feedback)
 
     def run(self):
+        if self.game.is_finished():
+            raise errors.FinishedGameError(self.game)
         while(not self.game.is_finished()):
             self.run_interaction()
         self.compute_stats()

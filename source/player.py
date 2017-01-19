@@ -1,4 +1,3 @@
-import random
 import numpy as np
 import re
 from copy import deepcopy
@@ -34,24 +33,31 @@ class Player:
         self.game = game
         self.id = id
         self.resources = resources
+        self.last_strategy = None
+
+    def play_strategy(self):
+        self.last_strategy = self.compute_strategy()
+        return self.last_strategy
 
     def compute_strategy(self):
         """
         set a probability distribution over the targets
         default: uniform strategy
         """
-        targets_number = len(self.game.values)
-        return [self.resources / targets_number for i in range(targets_number)]
+        return self.uniform_strategy(len(self.game.values))
 
     def sample_strategy(self):
         """
-        sample a single move from the computed distribution
+        sample a moves from the computed distribution
         """
-        strategy = self.game.strategy_history[-1][self.id]
-        selected_target = np.random.choice(len(self.game.values),
-                                           self.resources,
-                                           p=strategy, replace=False)
-        return [e for e in selected_target]
+        return sample(self.last_strategy, self.resources)
+
+    def learn(self):
+        pass
+
+    def uniform_strategy(self, elements):
+        return [self.resources / elements
+                for i in range(elements)]
 
     def __str__(self):
         return ''.join(["<", self.__class__.__name__,
@@ -86,7 +92,9 @@ class Defender(Player):
         self.feedbacks = []
 
     def receive_feedback(self, feedback):
-        self.feedbacks.append(feedback)
+        if feedback:
+            self.feedbacks.append(feedback)
+        self.learn()
 
     def last_reward(self):
         return sum(self.feedbacks[-1].values())
@@ -125,20 +133,20 @@ class Attacker(Player):
         # compute the expected value of each target (v[t]*(1-c[t]))
         values = np.array([self.game.values[t][self.id] for t in targets])
         expected_payoffs = values * (np.ones(len(targets)) - coverage)
+        expected_payoffs = [round(v, 3) for v in expected_payoffs]
 
         # play the argmax
         ordered_targets = sorted(targets,
                                  key=lambda t: expected_payoffs[t],
                                  reverse=True)[:]
         selected_targets = ordered_targets[:self.resources - 1]
-        # randomize over the 'last resource'
         last_max = max([expected_payoffs[t] for t in targets
                         if t not in selected_targets])
         max_indexes = [i for i in targets if expected_payoffs[i] == last_max]
         # select the target which is the BEST for the defender (convention)
         # only 1st defender is taken into account
         d = self.game.defenders[0]
-        best_for_defender = max(max_indexes, lambda x: self.game.values[x][d])
+        best_for_defender = max(max_indexes, key=lambda x: -self.game.values[x][d])
         selected_targets.append(best_for_defender)
         return [int(t in selected_targets) for t in targets]
 
@@ -174,5 +182,12 @@ class Attacker(Player):
         last_max = round(max([expected_payoffs[t] for t in targets
                         if t not in selected_targets]), 3)
         max_indexes = [i for i in targets if expected_payoffs[i] == last_max]
-        selected_targets.append(random.choice(max_indexes))
+        selected_targets.append(np.random.choice(max_indexes))
         return [int(t in selected_targets) for t in targets]
+
+
+def sample(distribution, items_number):
+    selected_indexes = np.random.choice(len(distribution),
+                                        items_number,
+                                        p=distribution, replace=False)
+    return [e for e in selected_indexes]

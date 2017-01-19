@@ -1,11 +1,64 @@
+"""
+ROADMAP
+
+1 defender and 1 attacker, with one resource each
+
+- Possible types:
+    - Known Stochastic      V
+    - Unknown Stochastic    V
+    - Stackelberg           V
+    - Fictitious Player     ? (stackelberg?)
+    - Quantal Response      -
+    - Adversary             -
+
+- 2 types:
+    -1 Known Stochastic or Stackelberg           V
+    -2 Unknown Stochastic or Stackelberg         ~
+    -3 Known Stochastic or Fictitious Player     ? 
+    -4 Unknown Stochastic or Fictitious Player   -
+    -5 Stackelberg or Fictitious Player          ?
+    -6 Known Stochastic or Quantal Response      -
+    -7 Unknown Stochastic or Quantal Response    -
+    -8 Stackelberg or Quantal Response           -
+    -9 Fictitious Player or Quantal response     -
+    -10 Known Stochastic or Adversary            -
+    -11 Unknown Stochastic or Adversary          -
+    -12 Stackelberg or Adversary                 -
+    -13 Fictitious Player or Adversary           -
+    -14 Quantal Response or Adversary            -
+
+Then we can try to distinguish among sets of types:
+
+- discriminate among a set by eliminating one type at time using the known
+  bounds
+- e.g. {KS, Sta, QR}: 2 bounds for KS, see which is passed before
+- if it is passed => discard KS!
+- otherwise => it could be KS
+
+
+Extend the 2-types identification with multiple resources
+
+Extend the multiple-types
+
+Extend the number of attackers (not coordinated)
+
+Extend the number of defenders
+
+
+"""
+
 import source.player as player
 import source.players.attackers as attackers
 import source.players.base_defenders as base_defenders
 import source.errors as errors
 from math import log, sqrt, exp
+from copy import deepcopy
+import enum
 import re
 import gurobipy
 import numpy as np
+
+State = enum.Enum('State', 'exploring stochastic stackelberg')
 
 
 class StUDefender(player.Defender):
@@ -61,8 +114,8 @@ class StUDefender(player.Defender):
         return self.br_stackelberg_strategy
 
 
-class AWESOMS_UCB(base_defenders.StackelbergDefender,
-                  base_defenders.KnownStochasticDefender):
+class FABULOUS(base_defenders.StackelbergDefender,
+               base_defenders.KnownStochasticDefender):
     """
     Adapt When Everybody is Stochastic, Otherwise Move to Stackelberg
     with Upper Confidence Bound where p=t^(-4)
@@ -70,7 +123,7 @@ class AWESOMS_UCB(base_defenders.StackelbergDefender,
     Defender detection of Stackelberg-Known Stochastic
     """
 
-    name = "awesoms_ucb"
+    name = "fabulous"
     pattern = re.compile(r"^" + name + r"((\d+(\.\d+)?)+(-(\d+(\.\d+)?)+)+)?$")
 
     @classmethod
@@ -96,95 +149,54 @@ class AWESOMS_UCB(base_defenders.StackelbergDefender,
     def __init__(self, game, id, resources=1, *distribution):
         player.Defender.__init__(self, game, id, resources)
         self.distribution = distribution
-        self.br_stackelberg_strategy = None
         self.maxmin = None
-        self.stackelberg = True
+        self.stochastic_reward = None
+        self.br_stackelberg_strategy = None
+        self.br_stochastic_strategy = None
+
+
+
+        # Initialization
+        self.norm_const = 1  # has to be initialized late
+        self.br_stackelberg()
+        self.br_stochastic()
+        self.stochastic_loss = - self.stochastic_reward
+        self.loss_sta_sto = None
+        self.state = State.exploring
 
     def compute_strategy(self):
         # if it is the first round then br to stackelberg
         t = len(self.game.history)
+        if t == 0:
+            self.norm_const = max([v[self.id] for v in self.game.values])
+            # mock_stackelberg = player.Attacker(self.game, 1)
         if t < 2:
-            return self.br_stackelberg()
-        else:
-            # compute the new bound
-            if self.stackelberg:
-                bound = sqrt(2 * log(t) / t)
-                # check if it has been exceeded
-                average_reward = sum([sum(f.values()) for f in self.feedbacks]) / t
-                self.stackelberg = (self.maxmin - average_reward <= bound)
-                if self.stackelberg:
-                    return self.br_stackelberg()
             return self.br_stochastic()
+        else:
+            def_last_moves = set(self.game.history[-1][0])  # hardcoded for now
+            att_last_moves = set(self.game.history[-1][1])
+            if self.state == State.exploring:
+                if def_last_moves.intersection(att_last_moves):
+                    self.state = State.stochastic
+                    return self.br_stochastic()
+                avg_loss = - sum([f['total'] for f in self.feedbacks]) / t
+                delta_t = 1 / (t * t)
+                bound = self.norm_const * sqrt(-log(delta_t) / (t))
+                if avg_loss - self.stochastic_loss <= bound:
+                    return self.br_stochastic()
+                else:
+                    #print("bound: ", bound, "diff: ", avg_loss - self.stochastic_loss)
+                    self.state = State.stackelberg
+                    return self.br_stackelberg()
+            elif self.state == State.stochastic:
+                return self.br_stochastic()
+            elif self.state == State.stackelberg:
+                return self.br_stackelberg()
 
-
-class USD(base_defenders.UnknownStochasticDefender):
-
-    name = "usd"
-    pattern = re.compile(r"^" + name + r"-(fpl|fpls|wm)$")
-
-    @classmethod
-    def parse(cls, player_type, game, id):
-        if cls.pattern.match(player_type):
-            algorithm = player_type.split(cls.name)[1].split("-")[1]
-            args = [game, id, algorithm]
-            return cls(*args)
-
-    def __init__(self, game, id, algorithm="fpl"):
-        super().__init__(game, id)
-        self.algorithm = algorithm
-
-    def compute_strategy(self):
-        if self.game.history:
-            self.update_experts()
-        if self.algorithm == "fpl":
-            return self.follow_the_perturbed_leader()
-        elif self.algorithm == "fpls":
-            return self.fpl_with_sampling()
-        elif self.algorithm == "wm":
-            return self.weighted_majority()
-
-
-class USD2(base_defenders.UnknownStochasticDefender):
-
-    name = "usd2"
-    pattern = re.compile(r"^" + name + r"-(fpl|fpls|wm)$")
-
-    @classmethod
-    def parse(cls, player_type, game, id):
-        if cls.pattern.match(player_type):
-            algorithm = player_type.split(cls.name)[1].split("-")[1]
-            args = [game, id, algorithm]
-            return cls(*args)
-
-    def __init__(self, game, id, algorithm="fpl"):
-        super().__init__(game, id)
-        self.algorithm = algorithm
-
-    def compute_strategy(self):
-        if self.game.history:
-            self.update_experts()
-        t = len(self.game.history)
-        if self.algorithm == "fpl":
-            return self.follow_the_perturbed_leader()
-        elif self.algorithm == "fpls":
-            if t > 2:
-                self.learning_rate = self.learning_rate * sqrt(t - 1) / sqrt(t)
-            return self.fpl_with_sampling()
-        elif self.algorithm == "wm":
-            return self.weighted_majority()
-
-    def weighted_majority(self):  # not great results..
-        if not self.game.history:
-            return self.br_uniform()
-        weights = []
-        time = len(self.game.history)
-        # learning rate updated
-        if time > 1:
-            self.learning_rate = self.learning_rate / (sqrt(time - 1)) * sqrt(time)
-        experts = list(range(len(self.game.values)))
-        for e in experts:
-            avg_reward = self.expert_tot_rewards[e] / time
-            weights.append(np.array(exp(self.learning_rate * avg_reward)))
-        weights = np.array(weights)
-        weights = weights / np.linalg.norm(weights, ord=1)  # normalization
-        return [float(w) for w in weights]
+    def _json(self):
+        self_copy = deepcopy(self)
+        d = self_copy.__dict__
+        d.pop("game", None)
+        d["state"] = d["state"].name
+        d["class_name"] = self.__class__.__name__
+        return d

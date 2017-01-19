@@ -1,8 +1,8 @@
 import source.player as player
 import re
-import random
 import source.errors as errors
 import numpy as np
+from math import exp
 
 
 class StackelbergAttacker(player.Attacker):
@@ -44,7 +44,7 @@ class DumbAttacker(player.Attacker):
         super().__init__(game, id, resources)
         if not choice or len(choice) != self.resources:
             shuffled_targets = list(range(len(self.game.values)))
-            random.shuffle(shuffled_targets)
+            np.random.shuffle(shuffled_targets)
             self.choice = shuffled_targets[:resources]
 
     def compute_strategy(self):

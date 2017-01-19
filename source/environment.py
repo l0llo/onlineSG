@@ -17,7 +17,7 @@ class Environment:
 
         # Attackers possibly observe and compute strategies
         for a in self.game.attackers:
-            self.game.strategy_history[-1][a] = self.game.players[a].compute_strategy()
+            self.game.strategy_history[-1][a] = self.game.players[a].play_strategy()
 
         # Players extract a sample from their strategies
         self.game.history.append(dict())

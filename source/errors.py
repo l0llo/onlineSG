@@ -61,3 +61,11 @@ class NotAProbabilityError(OSG_Error):
 
     def __str__(self):
         return repr(self.value) + " is not a valid probability distribution"
+
+
+class FinishedGameError(OSG_Error):
+    def __init__(self, value):
+        self.value = value
+
+    def __str__(self):
+        return repr(self.value) + " has already been run"

@@ -148,11 +148,11 @@ class AutoJSONEncoder(JSONEncoder):
 #     # Defenders compute strategies (it includes also computing rewards)
 #     self.strategy_history.append(dict())
 #     for d in self.defenders:
-#         self.strategy_history[-1][d] = self.players[d].compute_strategy()
+#         self.strategy_history[-1][d] = self.players[d].play_strategy()
 
 #     # Attackers possibly observe and compute strategies
 #     for a in self.attackers:
-#         self.strategy_history[-1][a] = self.players[a].compute_strategy()
+#         self.strategy_history[-1][a] = self.players[a].play_strategy()
 
 #     # Players extract a sample from their strategies
 #     self.history.append(dict())
