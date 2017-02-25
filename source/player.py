@@ -1,6 +1,9 @@
 import numpy as np
 import re
 from copy import deepcopy
+import enum
+
+Learning = enum.Enum('Learning', 'MAB EXPERT')
 
 
 class Player:
@@ -52,9 +55,6 @@ class Player:
         """
         return sample(self.last_strategy, self.resources)
 
-    def learn(self):
-        pass
-
     def uniform_strategy(self, elements):
         return [self.resources / elements
                 for i in range(elements)]
@@ -90,11 +90,26 @@ class Defender(Player):
         """
         super().__init__(game, id, resources)
         self.feedbacks = []
+        self.tau = 0
 
     def receive_feedback(self, feedback):
-        if feedback:
+        if feedback is not None:
             self.feedbacks.append(feedback)
-        self.learn()
+        if hasattr(self, "learning"):
+            self.learn()
+            if self.learning == Learning.MAB:
+                if self.sel_arm is not None:
+                    self.sel_arm.receive_feedback(None)
+            elif self.learning == Learning.EXPERT:
+                if (isinstance(self.arms, list) or
+                        isinstance(self.arms, tuple)):
+                    for a in self.arms:
+                        a.receive_feedback(None)
+                elif isinstance(self.arms, dict):
+                    for a in self.arms:
+                        self.arms[a].receive_feedback(None)
+
+        self.tau += 1
 
     def last_reward(self):
         return sum(self.feedbacks[-1].values())
@@ -178,12 +193,20 @@ class Attacker(Player):
                                  key=lambda t: expected_payoffs[t],
                                  reverse=True)[:]
         selected_targets = ordered_targets[:self.resources - 1]
-        # randomize over the 'last resource' 
+        # randomize over the 'last resource'
         last_max = round(max([expected_payoffs[t] for t in targets
-                        if t not in selected_targets]), 3)
+                              if t not in selected_targets]), 3)
         max_indexes = [i for i in targets if expected_payoffs[i] == last_max]
         selected_targets.append(np.random.choice(max_indexes))
         return [int(t in selected_targets) for t in targets]
+
+    def exp_loss(self, strategy_vec):
+        return -sum([s_d *
+                     sum([s_a * sum(self.game.
+                                    get_player_payoffs(0, {0: [i], 1:[j]}))
+                          for j, s_a in enumerate(strategy_vec[1])
+                          if j != i])
+                     for i, s_d in enumerate(strategy_vec[0])])
 
 
 def sample(distribution, items_number):

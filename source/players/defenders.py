@@ -14,7 +14,7 @@ ROADMAP
 - 2 types:
     -1 Known Stochastic or Stackelberg           V
     -2 Unknown Stochastic or Stackelberg         ~
-    -3 Known Stochastic or Fictitious Player     ? 
+    -3 Known Stochastic or Fictitious Player     ?
     -4 Unknown Stochastic or Fictitious Player   -
     -5 Stackelberg or Fictitious Player          ?
     -6 Known Stochastic or Quantal Response      -
@@ -50,13 +50,13 @@ Extend the number of defenders
 import source.player as player
 import source.players.attackers as attackers
 import source.players.base_defenders as base_defenders
-import source.errors as errors
-from math import log, sqrt, exp
+import source.players.detection as detection
+import source.standard_player_parsers as spp
+from math import log, sqrt
 from copy import deepcopy
 import enum
 import re
 import gurobipy
-import numpy as np
 
 State = enum.Enum('State', 'exploring stochastic stackelberg')
 
@@ -80,10 +80,12 @@ class StUDefender(player.Defender):
     def compute_strategy(self):
         if len(self.game.history) == 1 or self.belief['stackelberg']:
             last_move = self.game.history[-1][1][0]
-            mock_move = [i for (i, s) in enumerate(self.mock_stackelberg.compute_strategy())
+            mock_move = [i for (i, s) in enumerate(self.mock_stackelberg.
+                                                   compute_strategy())
                          if s][0]
             if last_move == mock_move:
-                self.belief['uniform'] = self.belief['uniform'] * (1 / len(self.game.values))
+                self.belief['uniform'] = (self.belief['uniform'] /
+                                          len(self.game.values))
                 self.belief['stackelberg'] = 1 - self.belief['uniform']
             else:
                 self.belief['uniform'] = 1
@@ -100,8 +102,10 @@ class StUDefender(player.Defender):
             targets = list(range(len(self.game.values)))
             strategy = []
             for t in targets:
-                strategy.append(m.addVar(vtype=gurobipy.GRB.CONTINUOUS, name="x" + str(t)))
-            v = m.addVar(lb=-gurobipy.GRB.INFINITY, vtype=gurobipy.GRB.CONTINUOUS, name="v")
+                strategy.append(m.addVar(vtype=gurobipy.GRB.CONTINUOUS,
+                                         name="x" + str(t)))
+            v = m.addVar(lb=-gurobipy.GRB.INFINITY,
+                         vtype=gurobipy.GRB.CONTINUOUS, name="v")
             m.setObjective(v, gurobipy.GRB.MAXIMIZE)
             for t in targets:
                 terms = [-self.game.values[t][self.id] * strategy[i]
@@ -124,27 +128,11 @@ class FABULOUS(base_defenders.StackelbergDefender,
     """
 
     name = "fabulous"
-    pattern = re.compile(r"^" + name + r"((\d+(\.\d+)?)+(-(\d+(\.\d+)?)+)+)?$")
+    pattern = re.compile(r"^" + name + r"(\d+(-\d+(\.\d+)?)*)?$")
 
     @classmethod
     def parse(cls, player_type, game, id):
-        if cls.pattern.match(player_type):
-            arguments = [float(a) for a in
-                         player_type.split(cls.name)[1].split("-")
-                         if a != '']
-            if not arguments:
-                return cls(game, id)
-            elif len(arguments) == 1:
-                return cls(game, id, int(arguments[0]))
-            else:
-                arguments[0] = int(arguments[0])
-                if (len(arguments) == len(game.values) + 1):
-                    is_prob = round(sum(arguments[1:]), 3) == 1
-                    if is_prob:
-                        args = [game, id] + arguments
-                        return cls(*args)
-                    else:
-                        raise errors.NotAProbabilityError(arguments[1:])
+        return spp.stochastic_parse(cls, player_type, game, id)
 
     def __init__(self, game, id, resources=1, *distribution):
         player.Defender.__init__(self, game, id, resources)
@@ -153,8 +141,6 @@ class FABULOUS(base_defenders.StackelbergDefender,
         self.stochastic_reward = None
         self.br_stackelberg_strategy = None
         self.br_stochastic_strategy = None
-
-
 
         # Initialization
         self.norm_const = 1  # has to be initialized late
@@ -168,12 +154,15 @@ class FABULOUS(base_defenders.StackelbergDefender,
         # if it is the first round then br to stackelberg
         t = len(self.game.history)
         if t == 0:
-            self.norm_const = max([v[self.id] for v in self.game.values])
-            # mock_stackelberg = player.Attacker(self.game, 1)
+            mock_stackelberg = attackers.StackelbergAttacker(self.game, 1)
+            strategies = {0: self.br_stochastic(),
+                          1: None}
+            self.norm_const = (mock_stackelberg.exp_loss(strategies) -
+                               self.stochastic_loss)
         if t < 2:
             return self.br_stochastic()
         else:
-            def_last_moves = set(self.game.history[-1][0])  # hardcoded for now
+            def_last_moves = set(self.game.history[-1][0])  # hardcoded
             att_last_moves = set(self.game.history[-1][1])
             if self.state == State.exploring:
                 if def_last_moves.intersection(att_last_moves):
@@ -181,11 +170,12 @@ class FABULOUS(base_defenders.StackelbergDefender,
                     return self.br_stochastic()
                 avg_loss = - sum([f['total'] for f in self.feedbacks]) / t
                 delta_t = 1 / (t * t)
-                bound = self.norm_const * sqrt(-log(delta_t) / (t))
+                bound = (self.norm_const *
+                         sqrt(-log(delta_t) / (t)))
                 if avg_loss - self.stochastic_loss <= bound:
                     return self.br_stochastic()
                 else:
-                    #print("bound: ", bound, "diff: ", avg_loss - self.stochastic_loss)
+                    # print("switch at: ", t)
                     self.state = State.stackelberg
                     return self.br_stackelberg()
             elif self.state == State.stochastic:
@@ -200,3 +190,135 @@ class FABULOUS(base_defenders.StackelbergDefender,
         d["state"] = d["state"].name
         d["class_name"] = self.__class__.__name__
         return d
+
+
+class STA_KSTO_Expert(base_defenders.ExpertDefender):
+
+    name = "sta_ksto_expert"
+    pattern = re.compile(r"^" + name + r"(\d+(-\d+(\.\d+)?)*)?$")
+
+    @classmethod
+    def parse(cls, player_type, game, id):
+        return spp.stochastic_parse(cls, player_type, game, id)
+
+    def __init__(self, game, id, resources=1, *distribution):
+        arms = [base_defenders.StackelbergDefender(game, 0),
+                   base_defenders.KnownStochasticDefender(game, 0, 1,
+                                                          *distribution)]
+        super().__init__(game, id, resources, 1, algo='fpl', *arms)
+
+
+class STA_USTO_Expert(base_defenders.ExpertDefender):
+
+    name = "sta_usto_expert"
+    pattern = re.compile(r"^" + name + "\d*$")
+
+    @classmethod
+    def parse(cls, player_type, game, id):
+        return spp.base_parse(cls, player_type, game, id)
+
+    def __init__(self, game, id, resources=1):
+        arms = [base_defenders.StackelbergDefender(game, 0),
+                   base_defenders.UnknownStochasticDefender(game, 0,
+                                                            algorithm='fpl')]
+        super().__init__(game, id, resources, 1, algo='fpl', *arms)
+
+
+class STA_KSTO_MAB(base_defenders.MABDefender):
+
+    name = "sta_ksto_mab"
+    pattern = re.compile(r"^" + name + r"(\d+(-\d+(\.\d+)?)*)?$")
+
+    @classmethod
+    def parse(cls, player_type, game, id):
+        return spp.stochastic_parse(cls, player_type, game, id)
+
+    def __init__(self, game, id, resources=1, *distribution):
+        arms = [base_defenders.StackelbergDefender(game, 0),
+                base_defenders.KnownStochasticDefender(game, 0, 1,
+                                                       *distribution)]
+        super().__init__(game, id, resources, *arms)
+
+
+class STA_USTO_MAB(base_defenders.MABDefender):
+
+    name = "sta_usto_mab"
+    pattern = re.compile(r"^" + name + "\d*$")
+
+    @classmethod
+    def parse(cls, player_type, game, id):
+        return spp.base_parse(cls, player_type, game, id)
+
+    def __init__(self, game, id, resources=1):
+        arms = [base_defenders.StackelbergDefender(game, 0),
+                base_defenders.UnknownStochasticDefender(game, 0,
+                                                         algorithm='fpl')]
+        super().__init__(game, id, resources, *arms)
+
+
+class STA_STO_Holmes1(detection.HOLMES):
+
+    name = "sta_sto_holmes1"
+    pattern = re.compile(r"^" + name + r"(\d+(-\d+(\.\d+)?)*)?$")
+
+    @classmethod
+    def parse(cls, player_type, game, id):
+        return spp.stochastic_parse(cls, player_type, game, id)
+
+    def __init__(self, game, id, resources, *distribution):
+        other_kinds = [attackers.StochasticAttacker(game, 1, 1, *distribution)]
+        strategy_aware = attackers.StackelbergAttacker(game, 1, 1)
+        L = 1
+        super().__init__(game, 0, 1, strategy_aware, other_kinds, None, L)
+
+    def compute_strategy(self):
+        if self.tau == 0:
+            mock_sta_def = base_defenders.StackelbergDefender(self.game, 0, 1)
+            mock_sto_def = (base_defenders.
+                            KnownStochasticDefender(self.game, 0, 1,
+                                                    * self.K2[0].
+                                                    distribution))
+            self.br_strategies = [tuple(mock_sto_def.br_stochastic()),
+                                  tuple(mock_sta_def.br_stackelberg())]
+        return super().compute_strategy()
+
+
+class BR_Expert(base_defenders.ExpertDefender):
+
+    name = "br_expert"
+    pattern = re.compile(r"^" + name + r"\d+-\d+-\d+$")
+
+    @classmethod
+    def parse(cls, player_type, game, id):
+        return spp.parse1(cls, player_type, game, id, spp.parse_integers)
+
+    def __init__(self, game, id, resources,
+                 learning_rate, algo='fpl'):
+        experts = []
+        super().__init__(game, id, resources, learning_rate, algo, *experts)
+
+    def compute_strategy(self):
+        if self.tau == 0:
+            self.arms = [p.get_best_responder() for p
+                         in self.game.profiles]
+        return super().compute_strategy()
+
+
+class BR_MAB(base_defenders.MABDefender):
+
+    name = "br_mab"
+    pattern = re.compile(r"^" + name + r"\d+-\d+$")
+
+    @classmethod
+    def parse(cls, player_type, game, id):
+        return spp.parse1(cls, player_type, game, id, spp.parse_integers)
+
+    def __init__(self, game, id, resources, algo='fpl'):
+        experts = []
+        super().__init__(game, id, resources, algo, *experts)
+
+    def compute_strategy(self):
+        if self.tau == 0:
+            self.arms = [p.get_best_responder() for p
+                         in self.game.profiles]
+        return super().compute_strategy()

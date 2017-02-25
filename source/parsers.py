@@ -5,6 +5,7 @@ import pandas as pd
 import source.players.attackers as attackers
 import source.players.base_defenders as base_defenders
 import source.players.defenders as defenders
+import source.players.detection as detection
 from source.errors import *
 
 
@@ -23,6 +24,7 @@ class Parser:
         self.targets_headers = []
         self.attackers_headers = []
         self.defenders_headers = []
+        self.profile_headers = []
         for h in self.df.columns:
             try:
                 self.targets_headers.append(int(h))
@@ -31,7 +33,9 @@ class Parser:
                     self.attackers_headers.append(h)
                 elif "Defender" in h:
                     self.defenders_headers.append(h)
-                elif h != "T":
+                elif "Profile" in h:
+                    self.profile_headers.append(h)
+                elif h != "T" and h != "Name":
                     raise UnknownHeaderError
 
     def parse_row(self, index):
@@ -45,8 +49,12 @@ class Parser:
         defender_types = [self.df[d].iloc[index]
                           for d in self.defenders_headers
                           if isinstance(self.df[d].iloc[index], str)]
+        profile_types = [self.df[d].iloc[index]
+                         for d in self.profile_headers
+                         if isinstance(self.df[d].iloc[index], str)]
         values = [self.df[str(t)].iloc[index]
                   for t in self.targets_headers]
+        name = self.df["Name"].iloc[index]
         time_horizon = int(self.df["T"].iloc[index])
         player_number = len(attacker_types) + len(defender_types)
         try:
@@ -55,8 +63,10 @@ class Parser:
                              for (j, d) in enumerate(defender_types)]
             attacker_ids = [parse_player(a, game, i + len(defenders_ids))
                             for (i, a) in enumerate(attacker_types)]
-            game.set_players(defenders_ids, attacker_ids)
-            return game
+            profiles = [parse_player(a, game, 1)
+                        for (i, a) in enumerate(profile_types)]
+            game.set_players(defenders_ids, attacker_ids, profiles)
+            return game, name
         except (UnparsableGameError, UnparsablePlayerError,
                 TuplesWrongLenghtError) as e:
             raise RowError from e
@@ -71,7 +81,8 @@ def parse_player(player_type, game, id):
     players_classes = sum([get_classes(player),
                            get_classes(attackers),
                            get_classes(base_defenders),
-                           get_classes(defenders)], [])
+                           get_classes(defenders),
+                           get_classes(detection)], [])
     for c in players_classes:
         parsed = c.parse(player_type, game, id)
         if parsed:
@@ -86,7 +97,9 @@ def parse_game(values, player_number, time_horizon):
     exception
     """
     games_classes = [obj for name, obj in inspect.getmembers(game)
-                     if inspect.isclass(obj) and issubclass(obj, game.Game)]
+                     if inspect.isclass(obj) and
+                     issubclass(obj, game.Game) and
+                     hasattr(obj, 'parse_value')]
     for c in games_classes:
         parsed_values = None
         try:
@@ -99,5 +112,7 @@ def parse_game(values, player_number, time_horizon):
 
 
 def get_classes(module):
-    return [c[1] for c in inspect.getmembers(module) 
-            if inspect.isclass(c[1]) and c[1].__module__ == module.__name__]
+    return [c[1] for c in inspect.getmembers(module)
+            if (inspect.isclass(c[1]) and
+                c[1].__module__ == module.__name__ and
+                hasattr(c[1], 'parse'))]

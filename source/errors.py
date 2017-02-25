@@ -69,3 +69,11 @@ class FinishedGameError(OSG_Error):
 
     def __str__(self):
         return repr(self.value) + " has already been run"
+
+
+class UnparsableProfile(OSG_Error):
+    def __init__(self, e):
+        self.e = e
+
+    def __str__(self):
+        return "Can't parse an adversary profile: " + repr(self.e)

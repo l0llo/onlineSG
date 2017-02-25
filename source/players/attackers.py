@@ -1,4 +1,5 @@
 import source.player as player
+import source.players.base_defenders as base_defenders
 import re
 import source.errors as errors
 import numpy as np
@@ -17,6 +18,21 @@ class StackelbergAttacker(player.Attacker):
     def compute_strategy(self):
         return self.best_respond(self.game.strategy_history[-1])
 
+    def exp_loss(self, input_strategy):
+        strategy = {0: input_strategy[0]}
+        mock_attacker = player.Attacker(self.game, 1)
+        att_strategy = mock_attacker.best_respond(strategy)
+        strategy[1] = att_strategy
+        return super().exp_loss(strategy)
+
+    def opt_loss(self):
+        sta_def = base_defenders.StackelbergDefender(self.game, 0, 1)
+        sta_def.br_stackelberg()
+        return -sta_def.maxmin
+
+    def get_best_responder(self):
+        return base_defenders.StackelbergDefender(self.game, 0)
+
 
 class StackelbergAttackerR(player.Attacker):
     """
@@ -34,7 +50,7 @@ class StackelbergAttackerR(player.Attacker):
 
 class DumbAttacker(player.Attacker):
     """
-    The Dumb attacker, given an initially choosen action, always plays itp
+    The Dumb attacker, given an initially choosen action, always plays it
     """
 
     name = "dumb"
@@ -114,18 +130,62 @@ class StochasticAttacker(player.Attacker):
 
     def __init__(self, game, id, resources=1, *distribution):
         super().__init__(game, id, resources)
-        self.distribution = distribution
         targets = list(range(len(game.values)))
         if not distribution:
             self.distribution = [1 / len(targets) for t in targets]
         else:
-            self.distribution = distribution
+            self.distribution = list(distribution)
 
     def compute_strategy(self):
         return self.distribution
 
+    def exp_loss(self, input_strategy):
+        strategy = {0: input_strategy[0]}
+        strategy[1] = self.distribution
+        return super().exp_loss(strategy)
+
+    def opt_loss(self):
+        sto_def = base_defenders.KnownStochasticDefender(self.game, 0, 1, *
+                                                         self.distribution)
+        s = {0: sto_def.compute_strategy(),
+             1: self.compute_strategy()}
+        return self.exp_loss(s)
+
+    def get_best_responder(self):
+        if self.distribution is not None:
+            return base_defenders.KnownStochasticDefender(self.game, 0, 1,
+                                                          *self.distribution)
+        else:
+            return base_defenders.UnknownStochasticDefender(self.game, 0)
+
+
+class MockStochasticAttacker(StochasticAttacker):
+    """
+    Not a real attacker to be instantiated: it is intended to be used by the
+    defender as a model
+    """
+
+    name = "unk_stochastic_attacker"
+    pattern = re.compile(r"^" + name + r"\d$")
+
+    def __init__(self, game, id, resources=1):
+        super().__init__(game, id, resources)
+
+    def compute_strategy(self):
+        targets = list(range(len(self.game.values)))
+        weights = {t: 1 for t in targets}
+        for h in self.game.history:
+            weights[h[self.id][0]] += 1
+        norm = sum([weights[t] for t in targets])
+        return [weights[t] / norm for t in targets]
+
+    def get_best_responder(self):
+        return base_defenders.UnknownStochasticDefender2(self.game, 0)
+
 
 class QuantalResponseAttacker(player.Attacker):
+    """    
+    """
 
     name = "QR"
     pattern = re.compile(r"^" + name + r"(\d+(-(\d+(\.\d+)?))?)?$")

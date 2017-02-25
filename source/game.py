@@ -3,9 +3,11 @@ from functools import reduce
 import re
 import numbers
 from source.errors import NonHomogeneousTuplesError, TuplesWrongLenghtError
+from copy import copy
 import pickle
 import json
 from json import JSONEncoder
+from source.util import difficulty
 
 
 class Game:
@@ -52,7 +54,9 @@ class Game:
         #: list of dict for each turn: each one is made by the
         #: moves of the players (each move is a tuple of choosen targets
         #: indexes)
+        self.profiles = []
         self.history = []
+        self.difficulties = []
         self.strategy_history = []
 
     def __str__(self):
@@ -67,7 +71,7 @@ class Game:
                         " players", str(self.players),
                         " time_horizon:", str(self.time_horizon), ">"])
 
-    def set_players(self, defenders, attackers):
+    def set_players(self, defenders, attackers, profiles):
         """
         run this method to add new players to
         the game
@@ -84,6 +88,11 @@ class Game:
                                          end_attackers)))
         if len(self.values[0]) != len(players):
             raise TuplesWrongLenghtError
+        self.profiles = attackers + profiles
+        # hardcoding for 1 resource
+        attacker = self.players[self.attackers[0]]
+        self.difficulties = [difficulty(attacker, p)
+                             for p in profiles if p != attacker]
 
     def play_game(self):
         for t in range(self.time_horizon):
@@ -158,6 +167,13 @@ class AutoJSONEncoder(JSONEncoder):
 #     self.history.append(dict())
 #     for p in self.players:
 #         self.history[-1][p] = self.players[p].sample_strategy()
+
+
+def copy_game(g):
+    game_copy = copy(g)
+    game_copy.history = copy(g.history)
+    game_copy.strategy_history = copy(g.strategy_history)
+    return game_copy
 
 
 def main():

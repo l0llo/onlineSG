@@ -1,5 +1,6 @@
 import source.player as player
 import source.errors as errors
+import source.standard_player_parsers as spp
 from math import exp, log, sqrt
 from copy import copy, deepcopy
 import re
@@ -7,7 +8,7 @@ import numpy as np
 import enum
 import gurobipy
 
-Algorithm = enum.Enum('Algorithm', 'fpl wm fpls')
+ExpAlgorithm = enum.Enum('ExpAlgorithm', 'fpl wm fpls')
 
 
 class FixedActionDefender(player.Defender):
@@ -19,38 +20,24 @@ class FixedActionDefender(player.Defender):
     def __init__(self, game, id, action):
         super().__init__(game, id, 1)
         targets = list(range(len(self.game.values)))
-        self.last_strategy = [int(t == action) for t in targets]
+        self.fixed_strategy = [int(t == action) for t in targets]
 
-    def compute_strategy(self):
-        return self.last_strategy
+    def compute_strategy(self, strategy=None):
+        if strategy:
+            return strategy
+        return self.fixed_strategy
 
 
 class KnownStochasticDefender(player.Defender):
     """
     """
 
-    name = "stochastic_defender"
+    name = "sto_def"
     pattern = re.compile(r"^" + name + r"(\d+(-\d+(\.\d+)?)*)?$")
 
     @classmethod
     def parse(cls, player_type, game, id):
-        if cls.pattern.match(player_type):
-            arguments = [float(a) for a in
-                         player_type.split(cls.name)[1].split("-")
-                         if a != '']
-            if not arguments:
-                return cls(game, id)
-            elif len(arguments) == 1:
-                return cls(game, id, int(arguments[0]))
-            else:
-                arguments[0] = int(arguments[0])
-                if (len(arguments) == len(game.values) + 1):
-                    is_prob = round(sum(arguments[1:]), 3) == 1
-                    if is_prob:
-                        args = [game, id] + arguments
-                        return cls(*args)
-                    else:
-                        raise errors.NotAProbabilityError(arguments[1:])
+        return spp.stochastic_parse(cls, player_type, game, id)
 
     def __init__(self, game, id, resources=1, *distribution):
         super().__init__(game, id, resources)
@@ -70,8 +57,10 @@ class KnownStochasticDefender(player.Defender):
             max_target = max(targets,
                              key=lambda x:
                              self.game.values[x][0] * self.distribution[x])
-            self.stochastic_reward = (-self.game.values[max_target][0] *
-                                      self.distribution[max_target])
+            self.stochastic_reward = sum([(-self.game.values[i][0] *
+                                           self.distribution[i])
+                                          for i in targets
+                                          if i != max_target])
             self.br_stochastic_strategy = [int(i == max_target)
                                            for i in targets]
         return self.br_stochastic_strategy
@@ -79,7 +68,7 @@ class KnownStochasticDefender(player.Defender):
 
 class StackelbergDefender(player.Defender):
 
-    name = "stackelberg_defender"
+    name = "sta_def"
     pattern = re.compile(r"^" + name + "\d*$")
 
     def __init__(self, game, id, resources=1):
@@ -113,67 +102,80 @@ class StackelbergDefender(player.Defender):
 
 class ExpertDefender(player.Defender):
 
+    name = "expert"
+
     @classmethod
     def parse(cls, player_type, game, id):
         return None
 
     def __init__(self, game, id, resources,
-                 learning_rate, experts, algo='fpl'):
+                 learning_rate, algo='fpl', *arms):
         super().__init__(game, id, resources)
+        if isinstance(algo, int):
+            self.algorithm = ExpAlgorithm(algo)
+        else:
+            self.algorithm = ExpAlgorithm[algo]
         self.learning_rate = learning_rate
-        self.experts = experts
-        self.avg_rewards = {e: 0 for e in experts}
+        self.arms = arms
+        self.avg_rewards = None
         self.norm_const = 1  # has to be initialized late
-        self.algorithm = Algorithm[algo]
+        self.learning = player.Learning.EXPERT
         #: id of the selected expert
-        self.selected_expert = None
-        self.t = 0
+        self.sel_arm = None
 
     def compute_strategy(self):
         """
         this do not allow  exposing mixed strategy at expert level:
         if you want to, modify this method in a subclass
         """
-        if self.algorithm == Algorithm.fpl:
+        if self.tau == 0:
+            self.avg_rewards = {e: 0 for e in self.arms}
+        if self.algorithm == ExpAlgorithm.fpl:
             exp_distribution = self.follow_the_perturbed_leader()
-        elif self.algorithm == Algorithm.wm:
+        elif self.algorithm == ExpAlgorithm.wm:
             exp_distribution = self.weighted_majority()
-        elif self.algorithm == Algorithm.fpls:
+        elif self.algorithm == ExpAlgorithm.fpls:
             exp_distribution = self.fpl_with_sampling()
-        self.selected_expert = self.experts[player.sample(exp_distribution, 1)[0]]
-        for e in self.experts:
-            if e != self.selected_expert:
+        self.sel_arm = self.arms[player.sample(exp_distribution, 1)[0]]
+        for e in self.arms:
+            if e != self.sel_arm:
                 e.play_strategy()
-        return self.selected_expert.play_strategy()
+        return self.sel_arm.play_strategy()
 
     def learn(self):
-        self.learning_rate = self.learning_rate * max(self.t - 1, 1) / self.t
-        for e in self.experts:
-            moves = copy(self.game.history[-1])
-            if e != self.selected_expert:
-                a = e.sample_strategy()
-                moves[0] = a
-            current_reward = sum(self.game.get_player_payoffs(0, moves))
-            self.avg_rewards[e] = ((self.avg_rewards[e] * max(self.t - 1, 1) +
-                                    current_reward) / self.t)
+        if self.tau > 0:
+            self.learning_rate = self.learning_rate * max(self.tau - 1, 1) / self.tau
+            for e in self.arms:
+                moves = copy(self.game.history[-1])
+                if e != self.sel_arm:
+                    a = e.sample_strategy()
+                    moves[0] = a
+                # if this expert defender has not played the real move
+                elif (e.last_strategy !=
+                      self.game.strategy_history[-1][self.id]):
+                    a = e.sample_strategy()
+                    moves[0] = a
+                current_reward = sum(self.game.get_player_payoffs(0, moves))
+                self.avg_rewards[e] = ((self.avg_rewards[e] * max(self.tau - 1, 1) +
+                                        current_reward) / self.tau)
 
     def follow_the_perturbed_leader(self):
         if not self.game.history:
             self.norm_const = max([v[self.id] for v in self.game.values])
-            return self.uniform_strategy(len(self.experts))
-        perturbed_rewards = {e: 0 for e in self.experts}
-        for e in self.experts:
+            return self.uniform_strategy(len(self.arms))
+        perturbed_rewards = {e: 0 for e in self.arms}
+        for e in self.arms:
             noise = np.random.uniform(0, self.norm_const * self.learning_rate)  # / log(time)
             perturbed_rewards[e] = self.avg_rewards[e] + noise  # +: we have a reward, not of a loss
-        perturbed_leader = max(self.experts,
+        perturbed_leader = max(self.arms,
                                key=lambda e: perturbed_rewards[e])
-        return [int(e == perturbed_leader) for e in self.experts]
+        return [int(e == perturbed_leader) for e in self.arms]
 
     def weighted_majority(self):
         if not self.game.history:
-            return self.uniform_strategy(len(self.experts))
+            return self.uniform_strategy(len(self.arms))
         weights = []
-        for e in self.experts:
+        for e in self.arms:
             weights.append(np.array(exp(self.learning_rate *
                                         self.avg_rewards[e])))
         weights = np.array(weights)
@@ -187,31 +189,23 @@ class ExpertDefender(player.Defender):
         """
         if not self.game.history:
             self.norm_const = max([v[self.id] for v in self.game.values])
-            return self.uniform_strategy(len(self.experts))
-        samples_sum = np.zeros(len(self.experts))
+            return self.uniform_strategy(len(self.arms))
+        samples_sum = np.zeros(len(self.arms))
         for i in range(iterations):
             sample = self.follow_the_perturbed_leader()
             samples_sum += np.array(sample)
         samples_sum /= iterations
         return [float(s) for s in samples_sum]
 
-    def receive_feedback(self, feedback):
-        if feedback:
-            self.feedbacks.append(feedback)
-        if self.t > 0:
-            self.learn()
-        for e in self.experts:
-            e.receive_feedback(None)
-        self.t += 1
-
     def _json(self):
         self_copy = deepcopy(self)
         d = self_copy.__dict__
         d.pop("game", None)
         d.pop("avg_rewards", None)
-        d["experts"] = [str(e) for e in self.experts]
+        d["arms"] = [str(e) for e in self.arms]
         d["algorithm"] = d["algorithm"].name
         d["class_name"] = self.__class__.__name__
+        d.pop("learning", None)
         return d
 
 
@@ -221,28 +215,27 @@ class MABDefender(ExpertDefender):
     observe the feedback of the chosen action
     """
 
+    name = "mab"
+
     @classmethod
     def parse(cls, player_type, game, id):
         return None
 
-    def __init__(self, game, id, resources,
-                 learning_rate, experts):
-        super().__init__(game, id, resources, learning_rate, experts)
-        self.weight = {e: 0 for e in experts}
-        N = len(self.experts)
-        T = self.game.time_horizon
-        self.prob = {e: 1 / N for e in self.experts}
-        self.beta = sqrt((N * log(N)) / ((exp(1) - 1) * T))
+    def __init__(self, game, id, resources, *arms):
+        super().__init__(game, id, resources, 1, 'fpl', *arms)
+        self.learning = player.Learning.MAB
+        self.weight = {e: 0 for e in arms}
+        self.prob = None
+        self.beta = None
 
     def learn(self):
-        # self.learning_rate = self.learning_rate * max(self.t - 1, 1) / self.t
         # moves = copy(self.game.history[-1])
         # cur_reward = sum(self.game.get_player_payoffs(0, moves))
         # # translate and normalize to be in [0, 1]
         # cur_reward = (cur_reward + self.norm_const) / self.norm_const
-        e = self.selected_expert
-        # N = len(self.experts)
-        # eta = sqrt((N * log(N)) / ((exp(1) - 1) * self.t))
+        e = self.sel_arm
+        # N = len(self.arms)
+        # eta = sqrt((N * log(N)) / ((exp(1) - 1) * self.tau))
         # self.weight[e] = self.weight[e] * exp(eta * cur_reward /
         #                                       self.prob[e])
         moves = copy(self.game.history[-1])
@@ -252,39 +245,37 @@ class MABDefender(ExpertDefender):
         self.weight[e] += 1
 
     def compute_strategy(self):
-        if not self.game.history:
+        if self.tau == 0:
+            self.weight = {e: 0 for e in self.arms}
+            N = len(self.arms)
+            T = self.game.time_horizon
+            self.prob = {e: 1 / N for e in self.arms}
+            self.beta = sqrt((N * log(N)) / ((exp(1) - 1) * T))
             self.norm_const = max([v[self.id] for v in self.game.values])
+            self.avg_rewards = {e: 0 for e in self.arms}
         #exp_distribution = self.exp3()
         exp_distribution = self.ucb1()
-        self.selected_expert = self.experts[player.sample(exp_distribution, 1)[0]]
-        return self.selected_expert.play_strategy()
+        self.sel_arm = self.arms[player.sample(exp_distribution, 1)[0]]
+        return self.sel_arm.play_strategy()
 
     def exp3(self):
         if not self.game.history:
-            return self.uniform_strategy(len(self.experts))
+            return self.uniform_strategy(len(self.arms))
         norm = np.linalg.norm(np.array(list(self.weight.values())), ord=1)
-        for e in self.experts:
+        for e in self.arms:
             self.prob[e] = ((1 - self.beta) * self.weight[e] / norm +
-                            self.beta / len(self.experts))
-        return [float(self.prob[e]) for e in self.experts]
+                            self.beta / len(self.arms))
+        return [float(self.prob[e]) for e in self.arms]
 
     def ucb1(self):
         if not self.game.history:
-            return self.uniform_strategy(len(self.experts))
+            return self.uniform_strategy(len(self.arms))
         r = dict()
-        for e in self.experts:
-            b = sqrt(log(self.t) / max(self.weight[e], 1))
-            r[e] = self.avg_rewards[e] + b
-        max_e = max(self.experts, key=lambda e: r[e])
-        return [int(e == max_e) for e in self.experts]
-
-    def receive_feedback(self, feedback):
-        if feedback:
-            self.feedbacks.append(feedback)
-        #if self.t > 0:
-        self.learn()
-        self.selected_expert.receive_feedback(None)
-        self.t += 1
+        for e in self.arms:
+            b = sqrt(log(self.tau) / max(self.weight[e], 1))
+            r[e] = (self.avg_rewards[e] / self.norm_const) + b
+        max_e = max(self.arms, key=lambda e: r[e])
+        return [int(e == max_e) for e in self.arms]
 
     def _json(self):
         d = super()._json()
@@ -295,51 +286,81 @@ class MABDefender(ExpertDefender):
 
 class UnknownStochasticDefender(ExpertDefender):
     """
+    we should go back to the version with FixedActionDefender
+    to uniform learning notation
     """
 
-    name = "unknown_stochastic_defender"
-    pattern = re.compile(r"^" + name + r"(\d+(-(\d+(\.\d+)?))?)?$")
+    name = "usto_def"
+    pattern = re.compile(r"^" + name + r"(\d+(-\d+(\.\d+)?)*)?$")
 
     @classmethod
     def parse(cls, player_type, game, id):
-        """
-        This is the default
-        """
-        if cls.pattern.match(player_type):
-            args = [game, id] + [int(a) for a in
-                                 player_type.split(cls.name)[1].split("-")
-                                 if a != '']
-            return cls(*args)
-        else:
-            return None
+        return spp.stochastic_parse(cls, player_type, game, id)
 
     def __init__(self, game, id, resources=1, learning_rate=1,
                  algorithm='fpls'):
-        # experts = [FixedActionDefender(game, self.id, i)
-        #            for i in list(range(len(game.values)))]
-        experts = list(range(len(game.values)))
-        super().__init__(game, id, resources, learning_rate, experts, algorithm)
+        arms = list(range(len(game.values)))
+        super().__init__(game, id, resources, learning_rate,
+                         algorithm, *arms)
 
     def compute_strategy(self):
-        if self.algorithm == Algorithm.fpl:
+        if self.algorithm == ExpAlgorithm.fpl:
             return self.follow_the_perturbed_leader()
-        elif self.algorithm == Algorithm.wm:
+        elif self.algorithm == ExpAlgorithm.wm:
             return self.weighted_majority()
-        elif self.algorithm == Algorithm.fpls:
+        elif self.algorithm == ExpAlgorithm.fpls:
             return self.fpl_with_sampling()
 
     def learn(self):
-        self.learning_rate = self.learning_rate * max(self.t - 1, 1) / self.t
-        for e in self.experts:
+        self.learning_rate = self.learning_rate * max(self.tau - 1, 1) / self.tau
+        for e in self.arms:
             moves = copy(self.game.history[-1])
             moves[0] = [e]
             current_reward = sum(self.game.get_player_payoffs(0, moves))
-            self.avg_rewards[e] = ((self.avg_rewards[e] * max(self.t - 1, 1) +
-                                    current_reward) / self.t)
+            self.avg_rewards[e] = ((self.avg_rewards[e] * max(self.tau - 1, 1) +
+                                    current_reward) / self.tau)
 
     def receive_feedback(self, feedback):
+        """
+        has to be revised: receive_feedback should not be modified
+        we
+        """
         if feedback:
             self.feedbacks.append(feedback)
-        if self.t > 0:
+        if self.tau > 0:
             self.learn()
-        self.t += 1
+        self.tau += 1
+
+
+class UnknownStochasticDefender2(ExpertDefender):
+    """
+    we should go back to the version with FixedActionDefender
+    to uniform learning notation
+    """
+
+    name = "usto_defV2"
+    pattern = re.compile(r"^" + name + r"(\d+(-\d+(\.\d+)?)*)?$")
+
+    @classmethod
+    def parse(cls, player_type, game, id):
+        return spp.stochastic_parse(cls, player_type, game, id)
+
+    def __init__(self, game, id, resources=1, learning_rate=1,
+                 algorithm='fpls'):
+        arms = [FixedActionDefender(game, id, t)
+                for t in range(len(game.values))]
+        super().__init__(game, id, resources, learning_rate,
+                         arms, algorithm)
+        import source.players.attackers as attackers
+        self.mock_sto = attackers.MockStochasticAttacker(game, 1, resources)
+
+    def learn(self):
+        self.learning_rate = (self.learning_rate * max(self.tau - 1, 1) /
+                              max(self.tau, 1))
+        self.avg_rewards = dict()
+        self.mock_sto.play_strategy()
+        targets = list(range(len(self.game.values)))
+        for i in targets:
+            strategies = {0: [int(i == t) for t in targets],
+                          1: self.mock_sto.last_strategy}
+            self.avg_rewards[self.arms[i]] = -self.mock_sto.exp_loss(strategies)
