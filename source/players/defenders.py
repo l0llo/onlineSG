@@ -286,16 +286,15 @@ class STA_STO_Holmes1(detection.HOLMES):
 class BR_Expert(base_defenders.ExpertDefender):
 
     name = "br_expert"
-    pattern = re.compile(r"^" + name + r"\d+-\d+-\d+$")
+    pattern = re.compile(r"^" + name + r"\d+-\d+$")
 
     @classmethod
     def parse(cls, player_type, game, id):
         return spp.parse1(cls, player_type, game, id, spp.parse_integers)
 
-    def __init__(self, game, id, resources,
-                 learning_rate, algo='fpl'):
+    def __init__(self, game, id, resources, algo='fpl'):
         experts = []
-        super().__init__(game, id, resources, learning_rate, algo, *experts)
+        super().__init__(game, id, resources, algo, *experts)
 
     def compute_strategy(self):
         if self.tau == 0:

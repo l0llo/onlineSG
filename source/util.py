@@ -47,11 +47,7 @@ def print_dist(distribution):
 
 
 def gen_distr(n):
-    d = [round(np.random.rand(), 2)]
-    for i in range(n - 2):
-        d.append(round(np.random.uniform(high=1 - sum(d)), 2))
-    d.append(round(1 - sum(d), 2))
-    np.random.shuffle(d)
+    d = list(np.random.dirichlet([1 for i in range(n)]))
     return d
 
 
@@ -309,3 +305,7 @@ def print_adv(adv):
                 print_dist(adv.distribution))
     else:
         return adv.__class__.name + str(adv.resources)
+
+
+def end_sound():
+    os.system("( speaker-test -t sine -f 1000 )& pid=$! ; sleep 0.2s ; kill -9 $pid")

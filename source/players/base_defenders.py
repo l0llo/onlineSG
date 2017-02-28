@@ -108,14 +108,12 @@ class ExpertDefender(player.Defender):
     def parse(cls, player_type, game, id):
         return None
 
-    def __init__(self, game, id, resources,
-                 learning_rate, algo='fpl', *arms):
+    def __init__(self, game, id, resources, algo='fpl', *arms):
         super().__init__(game, id, resources)
         if isinstance(algo, int):
             self.algorithm = ExpAlgorithm(algo)
         else:
             self.algorithm = ExpAlgorithm[algo]
-        self.learning_rate = learning_rate
         self.arms = arms
         self.avg_rewards = None
         self.norm_const = 1  # has to be initialized late
@@ -144,7 +142,6 @@ class ExpertDefender(player.Defender):
 
     def learn(self):
         if self.tau > 0:
-            self.learning_rate = self.learning_rate * max(self.tau - 1, 1) / self.tau
             for e in self.arms:
                 moves = copy(self.game.history[-1])
                 if e != self.sel_arm:
@@ -165,22 +162,24 @@ class ExpertDefender(player.Defender):
             return self.uniform_strategy(len(self.arms))
         perturbed_rewards = {e: 0 for e in self.arms}
         for e in self.arms:
-            noise = np.random.uniform(0, self.norm_const * self.learning_rate)  # / log(time)
+            N = len(self.arms)
+            noise = np.random.uniform(0, (self.norm_const * sqrt(N) /
+                                          max(self.tau, 1)))
             perturbed_rewards[e] = self.avg_rewards[e] + noise  # +: we have a reward, not of a loss
         perturbed_leader = max(self.arms,
                                key=lambda e: perturbed_rewards[e])
         return [int(e == perturbed_leader) for e in self.arms]
 
-    def weighted_majority(self):
-        if not self.game.history:
-            return self.uniform_strategy(len(self.arms))
-        weights = []
-        for e in self.arms:
-            weights.append(np.array(exp(self.learning_rate *
-                                        self.avg_rewards[e])))
-        weights = np.array(weights)
-        weights = weights / np.linalg.norm(weights, ord=1)  # normalization
-        return [float(w) for w in weights]
+    # def weighted_majority(self):
+    #     if not self.game.history:
+    #         return self.uniform_strategy(len(self.arms))
+    #     weights = []
+    #     for e in self.arms:
+    #         weights.append(np.array(exp(self.learning_rate * # has been removed!
+    #                                     self.avg_rewards[e])))
+    #     weights = np.array(weights)
+    #     weights = weights / np.linalg.norm(weights, ord=1)  # normalization
+    #     return [float(w) for w in weights]
 
     def fpl_with_sampling(self, iterations=1000):
         """
@@ -297,11 +296,9 @@ class UnknownStochasticDefender(ExpertDefender):
     def parse(cls, player_type, game, id):
         return spp.stochastic_parse(cls, player_type, game, id)
 
-    def __init__(self, game, id, resources=1, learning_rate=1,
-                 algorithm='fpls'):
+    def __init__(self, game, id, resources=1, algorithm='fpls'):
         arms = list(range(len(game.values)))
-        super().__init__(game, id, resources, learning_rate,
-                         algorithm, *arms)
+        super().__init__(game, id, resources, algorithm, *arms)
 
     def compute_strategy(self):
         if self.algorithm == ExpAlgorithm.fpl:
@@ -312,7 +309,6 @@ class UnknownStochasticDefender(ExpertDefender):
             return self.fpl_with_sampling()
 
     def learn(self):
-        self.learning_rate = self.learning_rate * max(self.tau - 1, 1) / self.tau
         for e in self.arms:
             moves = copy(self.game.history[-1])
             moves[0] = [e]
@@ -345,18 +341,14 @@ class UnknownStochasticDefender2(ExpertDefender):
     def parse(cls, player_type, game, id):
         return spp.stochastic_parse(cls, player_type, game, id)
 
-    def __init__(self, game, id, resources=1, learning_rate=1,
-                 algorithm='fpls'):
+    def __init__(self, game, id, resources=1, algorithm='fpls'):
         arms = [FixedActionDefender(game, id, t)
                 for t in range(len(game.values))]
-        super().__init__(game, id, resources, learning_rate,
-                         arms, algorithm)
+        super().__init__(game, id, resources, arms, algorithm)
         import source.players.attackers as attackers
         self.mock_sto = attackers.MockStochasticAttacker(game, 1, resources)
 
     def learn(self):
-        self.learning_rate = (self.learning_rate * max(self.tau - 1, 1) /
-                              max(self.tau, 1))
         self.avg_rewards = dict()
         self.mock_sto.play_strategy()
         targets = list(range(len(self.game.values)))
