@@ -167,7 +167,7 @@ class StrategyAwareDetector(base_defenders.StackelbergDefender):
             targets = list(range(len(self.game.values)))
             strategy = copy(self.br_stackelberg())
             sel_targets = [i for i in targets if strategy[i] > 0]
-            epsilon = 0.01
+            epsilon = min(strategy[t] for t in sel_targets) / 100
             for i, s in enumerate(strategy):
                 if i == t:
                     strategy[i] -= epsilon
@@ -244,7 +244,7 @@ class HOLMES(base_defenders.StackelbergDefender):
             targets = list(range(len(self.game.values)))
             strategy = self.br_stackelberg()
             sel_targets = [t for t in targets if strategy[t] > 0]
-            epsilon = 0.01
+            epsilon = min(strategy[t] for t in sel_targets) / 100
             t_strategies = []
             for t in sel_targets:
                 strategy = copy(self.br_stackelberg())
@@ -284,30 +284,34 @@ class HOLMES(base_defenders.StackelbergDefender):
         return state_node.branches[min_s].exp_regret, min_s
 
     def explore_strategy(self, strategy, state, s, depth):
-        print("exploring ", strategy, depth)
+        #print("exploring ", strategy, depth)
         targets = list(range(len(self.game.values)))
         s.exp_regret = 0
         depth -= 1
         for x in [tar for tar in targets if strategy[tar] > 0]:
             p_x = strategy[x]
             for t in targets:
-                start_time = time.time()
                 if (x, t) not in s.branches:
                     g = game.copy_game(state.g)
-                    g.history.append({0: [x],
-                                      1: [t]})
                     # mock attacker strategy, cannot know the real one
                     g.strategy_history.append({0: strategy,
                                                1: [int(i == t)
                                                    for i in targets]})
-                    a = {k: deepcopy(state.a[k]) for k in self.profiles}
+                    a = dict()
+                    # start_time = time.time()
                     for k in self.profiles:
-                        a[k].game = g
-                        a[k].receive_feedback(None)
                         k.game = g
+                        a[k] = k.get_best_responder()
                         k.play_strategy()
                     update = {k: k.last_strategy[t] * state.b[k]
                               for k in self.profiles}
+                    g.history.append({0: [x],
+                                      1: [t]})
+                    for k in self.profiles:
+                        a[k].receive_feedback(None)
+                    # duration = time.time() - start_time
+                    # if duration > 0.1:
+                    #     print(x, duration)
                     p_t = sum(update.values())
                     if p_t == 0:    # Temporary solution, better to mark it as
                                     # UNREACHABLE state
@@ -320,7 +324,6 @@ class HOLMES(base_defenders.StackelbergDefender):
                     s.branches[(x, t)] = State_Node(new_state, dict())
                 if s.branches[(x, t)].state.p != 0:
                     if depth == 0:
-                        print(x, t, time.time() - start_time)
                         exp_loss = sum([k.opt_loss() *
                                         s.branches[(x, t)].state.b[k]
                                         for k in self.profiles])
@@ -361,7 +364,6 @@ class HOLMES(base_defenders.StackelbergDefender):
         return min_s
 
     def learn(self):
-        print("learning")
         for p in self.profiles:
             p.game = self.game
             p.play_strategy()
