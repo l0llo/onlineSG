@@ -10,6 +10,7 @@ from collections import namedtuple
 import enum
 import re
 import numpy as np
+import time
 
 Detection = enum.Enum('Detection', 'strategy_aware not_strategy_aware')
 #State = namedtuple('State', ['b', 'r', 'p', 'g'])
@@ -283,13 +284,14 @@ class HOLMES(base_defenders.StackelbergDefender):
         return state_node.branches[min_s].exp_regret, min_s
 
     def explore_strategy(self, strategy, state, s, depth):
-        #print("exploring ", strategy, depth)
+        print("exploring ", strategy, depth)
         targets = list(range(len(self.game.values)))
         s.exp_regret = 0
         depth -= 1
-        for x in targets:  # shouldn't I remove the ones with prob == 0?
+        for x in [tar for tar in targets if strategy[tar] > 0]:
             p_x = strategy[x]
             for t in targets:
+                start_time = time.time()
                 if (x, t) not in s.branches:
                     g = game.copy_game(state.g)
                     g.history.append({0: [x],
@@ -318,6 +320,7 @@ class HOLMES(base_defenders.StackelbergDefender):
                     s.branches[(x, t)] = State_Node(new_state, dict())
                 if s.branches[(x, t)].state.p != 0:
                     if depth == 0:
+                        print(x, t, time.time() - start_time)
                         exp_loss = sum([k.opt_loss() *
                                         s.branches[(x, t)].state.b[k]
                                         for k in self.profiles])
@@ -330,7 +333,8 @@ class HOLMES(base_defenders.StackelbergDefender):
                         s.exp_regret += regret  # already weighted with p
 
     def get_br_strategies(self, arms):
-        return [tuple(arms[k].play_strategy()) for k in self.profiles]
+        return [tuple(arms[k].play_strategy()) for k in self.profiles
+                if k.__class__.name != attackers.StackelbergAttacker.name]
 
     def compute_strategy(self):
         if self.tau == 0:
@@ -357,6 +361,10 @@ class HOLMES(base_defenders.StackelbergDefender):
         return min_s
 
     def learn(self):
+        print("learning")
+        for p in self.profiles:
+            p.game = self.game
+            p.play_strategy()
         self.belief = self.update_belief()
 
     def _json(self):
