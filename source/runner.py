@@ -106,15 +106,15 @@ class Batch:
                                                                 traceback.format_exc(),
                                                                 row))
 
-    def run(self, n=1, show_progress=False):
+    def run(self, n=1, show_progress=False, workers=None):
         if show_progress:
             for c in log_progress(self.configurations):
                 if isinstance(c, Configuration):
-                    c.run(n, True)
+                    c.run(n, workers)
         else:
             for c in self.configurations:
                 if isinstance(c, Configuration):
-                    c.run(n)
+                    c.run(n, workers)
 
     def __str__(self):
         str1 = ''.join(["<", self.__class__.__name__, " configurations:"])
@@ -181,8 +181,8 @@ class Configuration:
         else:
             return experiment
 
-    def run(self, n=1):
-        with concurrent.futures.ProcessPoolExecutor(None) as executor:
+    def run(self, n=1, workers=None):
+        with concurrent.futures.ProcessPoolExecutor(workers) as executor:
             futures = []
             for i in range(n):
                 futures.append(executor.submit(Configuration.run_an_experiment,

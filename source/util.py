@@ -109,7 +109,7 @@ def gen_header(l):
 #     plt.show()
 
 
-def plot_conf(fun_str, comp, path, name=None):
+def plot_conf(fun_str, comp, path, name=None, show=False):
     plt.close()
     cmap = plt.get_cmap('gnuplot')
     colors = [cmap(i) for i in np.linspace(0, 1, len(comp))]
@@ -133,11 +133,12 @@ def plot_conf(fun_str, comp, path, name=None):
                          lower_bound, color=colors[i], alpha=0.3)
     plt.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.)
     plt.ylabel(fun_str)
-    plt.title(path + "/" + name + ".png" + "\n" +
-              str([v[0] for v in comp[0].game.values]))
+    plt.title(path + "/" + name + ".png" + "\n")  # +
+              #str([v[0] for v in comp[0].game.values]))
     plt.savefig(path + "/" + name + ".png",
                 bbox_inches='tight')
-    plt.show()
+    if show:
+        plt.show()
 
 
 def plot_from_csv(fun, comp, path, name=None):
@@ -309,3 +310,76 @@ def print_adv(adv):
 
 def end_sound():
     os.system("( speaker-test -t sine -f 1000 )& pid=$! ; sleep 0.2s ; kill -9 $pid")
+
+
+def gen_norm_targets(l):
+    targets = []
+    for i in range(l):
+        t = np.random.random()
+    # no targets with the same value (for now)
+        targets.append(t)
+    return targets
+
+
+def support(g):
+    import source.players.attackers as attackers
+
+    strategies = [t for t in (attackers.StackelbergAttacker(g, 1).
+                              get_best_responder().compute_strategy())]
+    return [g.values[i][0] for i, t in enumerate(strategies) if t]
+
+
+def translate(targets):
+    import source.game as game
+
+    m = min(targets)
+    r = round(float(np.random.uniform(high=m)), 3)
+    targets2 = [x - r for x in targets]
+    values = tuple((v, v) for v in targets2)
+    g = game.Game(values, 1)
+    g.attackers = [1]
+    g.defenders = [0]
+    if len(targets) == len(support(g)):
+        return targets2
+    else:
+        return translate(targets)
+
+
+def print_header(targets, profiles):
+    return ("Name,T," + ",".join(str(i) for i in range(len(targets))) +
+           ",Defender,Attacker," + ",".
+            join(["Profile" for x in range(len(profiles[0]['others']))]) +
+            "\n")
+
+
+def print_row(targets, time_horizon, d, p):
+    return (",".join([str(i) for i in ([d +"_vs_" + str(p["i"])] +
+                                       [time_horizon] + targets + [d] +
+                                       [p["attacker"]] +
+                                       [x for x in p["others"]])]) + "\n")
+
+
+def gen_setting(T, P, targets_dict, time_horizon):
+
+    import source.players.attackers as attackers
+    import source.game as game
+
+    targets = translate(targets_dict[T][0])
+    distributions = []
+    for i in range(P):
+        distributions.append(tuple(gen_distr(T)))
+    values = tuple((v, v) for v in targets)
+    g = game.Game(values, time_horizon)
+    g.attackers = [1]
+    g.defenders = [0]
+    #print(T, targets)
+    att = [attackers.StackelbergAttacker(g, 1)]
+    for d in distributions:
+        #print(d)
+        att.append(attackers.StochasticAttacker(g, 1, 1, *d))
+    profiles = []
+    index = 0  # hardcoded for stackelberg
+    profiles.append({"attacker": print_adv(att[index]),
+                     "others": [print_adv(a) for a in att
+                                if a != att[index]], "i": index})
+    return targets, profiles
