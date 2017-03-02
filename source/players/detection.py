@@ -11,6 +11,7 @@ import enum
 import re
 import numpy as np
 import time
+import functools
 
 Detection = enum.Enum('Detection', 'strategy_aware not_strategy_aware')
 #State = namedtuple('State', ['b', 'r', 'p', 'g'])
@@ -244,16 +245,24 @@ class HOLMES(base_defenders.StackelbergDefender):
             targets = list(range(len(self.game.values)))
             strategy = self.br_stackelberg()
             sel_targets = [t for t in targets if strategy[t] > 0]
-            epsilon = min(strategy[t] for t in sel_targets) / 100
-            t_strategies = []
-            for t in sel_targets:
-                strategy = copy(self.br_stackelberg())
-                for i, s in enumerate(strategy):
-                    if i == t:
-                        strategy[i] -= epsilon
-                    elif i in sel_targets:
-                        strategy[i] += epsilon / (len(sel_targets) - 1)
-                t_strategies.append(tuple(strategy))
+            for epsilon in [0.0001, 0.001, 0.01, 0.1]:
+                t_strategies = []
+                for t in sel_targets:
+                    strategy = copy(self.br_stackelberg())
+                    for i, s in enumerate(strategy):
+                        if i == t:
+                            strategy[i] -= epsilon
+                        elif i in sel_targets:
+                            strategy[i] += epsilon / (len(sel_targets) - 1)
+                    t_strategies.append(tuple(strategy))
+                # verify that they generate the correct br
+                mock_att = player.Attacker(self.game, 1)
+                br = [tuple(mock_att.best_respond({0: z, 1: None}))
+                      for z in t_strategies]
+                equalities = [(br[i] == tuple(int(j == t) for j in targets))
+                              for i, t in enumerate(sel_targets)]
+                if functools.reduce(lambda x, y: x and y, equalities):
+                    break
             self.t_strategies = t_strategies
         return self.t_strategies
 
@@ -324,8 +333,10 @@ class HOLMES(base_defenders.StackelbergDefender):
                     s.branches[(x, t)] = State_Node(new_state, dict())
                 if s.branches[(x, t)].state.p != 0:
                     if depth == 0:
-                        exp_loss = sum([k.opt_loss() *
-                                        s.branches[(x, t)].state.b[k]
+                        exp_loss = sum([s.branches[(x, t)].state.b[k] *
+                                        sum([k.exp_loss(z)
+                                             for z
+                                             in g.strategy_history[-self.L:]])
                                         for k in self.profiles])
                         regret = (-(s.branches[(x, t)].state.r) -
                                   exp_loss * self.L)
@@ -344,16 +355,12 @@ class HOLMES(base_defenders.StackelbergDefender):
             self.profiles = deepcopy(self.game.profiles)
             self.belief = {k: 1 / (len(self.profiles)) for k in self.profiles}
             self.arms = {k: k.get_best_responder() for k in self.profiles}
-            state = State(b=self.belief,
-                          r=0,
-                          p=1,
-                          g=self.game,
-                          a=self.arms)
-            self.tree = State_Node(state, dict())
-        else:
-            x = self.game.history[-1][0][0]
-            t = self.game.history[-1][1][0]
-            self.tree = self.tree.branches[self.last_strategy].branches[(x, t)]
+        state = State(b=self.belief,
+                      r=0,
+                      p=1,
+                      g=self.game,
+                      a=self.arms)
+        self.tree = State_Node(state, dict())
         br_strategies = self.get_br_strategies(self.arms)
         strategies = self.get_t_strategies() + br_strategies
         min_regret, min_s = self.explore_state(self.tree, self.L, strategies)
