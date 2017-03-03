@@ -334,9 +334,7 @@ class HOLMES(base_defenders.StackelbergDefender):
                 if s.branches[(x, t)].state.p != 0:
                     if depth == 0:
                         exp_loss = sum([s.branches[(x, t)].state.b[k] *
-                                        sum([k.exp_loss(z)
-                                             for z
-                                             in g.strategy_history[-self.L:]])
+                                        k.opt_loss()
                                         for k in self.profiles])
                         regret = (-(s.branches[(x, t)].state.r) -
                                   exp_loss * self.L)
