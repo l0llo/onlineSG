@@ -329,10 +329,6 @@ class UnknownStochasticDefender(ExpertDefender):
 
 
 class UnknownStochasticDefender2(ExpertDefender):
-    """
-    we should go back to the version with FixedActionDefender
-    to uniform learning notation
-    """
 
     name = "usto_defV2"
     pattern = re.compile(r"^" + name + r"(\d+(-\d+(\.\d+)?)*)?$")
@@ -341,16 +337,23 @@ class UnknownStochasticDefender2(ExpertDefender):
     def parse(cls, player_type, game, id):
         return spp.stochastic_parse(cls, player_type, game, id)
 
-    def __init__(self, game, id, resources=1, algorithm='fpls'):
+    def __init__(self, game, id, resources=1, algo='fpls', mock_sto=None):
         arms = [FixedActionDefender(game, id, t)
                 for t in range(len(game.values))]
-        super().__init__(game, id, resources, arms, algorithm)
+        super().__init__(game, id, resources, algo, *arms)
         import source.players.attackers as attackers
-        self.mock_sto = attackers.MockStochasticAttacker(game, 1, resources)
+        if mock_sto is None:
+            self.mock_sto = attackers.UnknownStochasticAttacker(game, 1,
+                                                                resources)
+            self.embedded = True
+        else:
+            self.mock_sto = mock_sto
+            self.embedded = False
 
     def learn(self):
         self.avg_rewards = dict()
-        self.mock_sto.play_strategy()
+        if self.embedded:
+            self.mock_sto.play_strategy()
         targets = list(range(len(self.game.values)))
         for i in targets:
             strategies = {0: [int(i == t) for t in targets],

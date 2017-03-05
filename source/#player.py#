@@ -7,6 +7,7 @@ Learning = enum.Enum('Learning', 'MAB EXPERT')
 
 
 class Player:
+
     """
     It is the base class from which all players inherit. It implements the 
     default compute_strategy method (as a uniform player) and the 
@@ -59,18 +60,15 @@ class Player:
         return [self.resources / elements
                 for i in range(elements)]
 
-    # def __str__(self):
-    #     return ''.join(["<", self.__class__.__name__,
-    #                     " id:", str(self.id),
-    #                     " resources:", str(self.resources), ">"])
+    def __str__(self):
+        return ''.join(["<", self.__class__.__name__,
+                        " id:", str(self.id),
+                        " resources:", str(self.resources), ">"])
 
     def __repr__(self):
         return ''.join(["<", self.__class__.__name__,
                         " id:", str(self.id),
                         " resources:", str(self.resources), ">"])
-
-    def __str__(self):
-        return self.__class__.name + str(self.resources)
 
     def _json(self):
         self_copy = deepcopy(self)

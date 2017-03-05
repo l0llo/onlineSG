@@ -189,8 +189,7 @@ class Configuration:
                                                self))
         for future in concurrent.futures.as_completed(futures):
             result = future.result()
-            if isinstance(result, Experiment):
-                self.experiments.append(result)
+            self.experiments.append(result)
         self.compute_stats()
         self.print_stats_file()
 

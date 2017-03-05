@@ -4,7 +4,7 @@ import re
 import source.errors as errors
 import numpy as np
 from math import exp
-
+import source.util as util
 
 class StackelbergAttacker(player.Attacker):
     """
@@ -128,11 +128,10 @@ class StochasticAttacker(player.Attacker):
                     else:
                         raise errors.NotAProbabilityError(arguments[1:])
 
-    def __init__(self, game, id, resources=1, *distribution):
-        super().__init__(game, id, resources)
-        targets = list(range(len(game.values)))
+    def __init__(self, g, id, resources=1, *distribution):
+        super().__init__(g, id, resources)
         if not distribution:
-            self.distribution = [1 / len(targets) for t in targets]
+            self.distribution = util.gen_distr(len(g.values))
         else:
             self.distribution = list(distribution)
 
@@ -158,8 +157,12 @@ class StochasticAttacker(player.Attacker):
         else:
             return base_defenders.UnknownStochasticDefender(self.game, 0)
 
+    def __str__(self):
+        return "-".join([super().__str__()] +
+                        [str(d) for d in self.distribution])
 
-class MockStochasticAttacker(StochasticAttacker):
+
+class UnknownStochasticAttacker(player.Attacker):
     """
     Not a real attacker to be instantiated: it is intended to be used by the
     defender as a model
@@ -180,7 +183,25 @@ class MockStochasticAttacker(StochasticAttacker):
         return [weights[t] / norm for t in targets]
 
     def get_best_responder(self):
-        return base_defenders.UnknownStochasticDefender2(self.game, 0)
+        br = base_defenders.UnknownStochasticDefender2(self.game, 0,
+                                                       mock_sto=self)
+        return br
+
+    def exp_loss(self, input_strategy):
+        strategy = {0: input_strategy[0]}
+        if self.last_strategy is None:
+            self.play_strategy()
+        strategy[1] = self.last_strategy
+        return super().exp_loss(strategy)
+
+    def opt_loss(self):
+        if self.last_strategy is None:
+            self.play_strategy()
+        sto_def = base_defenders.KnownStochasticDefender(self.game, 0, 1, *
+                                                         self.last_strategy)
+        s = {0: sto_def.compute_strategy(),
+             1: self.last_strategy}
+        return self.exp_loss(s)
 
 
 class QuantalResponseAttacker(player.Attacker):

@@ -8,6 +8,8 @@ import pickle
 import json
 from json import JSONEncoder
 from source.util import difficulty
+from copy import deepcopy
+import numpy as np
 
 
 class Game:
@@ -56,14 +58,14 @@ class Game:
         #: indexes)
         self.profiles = []
         self.history = []
-        self.difficulties = []
+        # self.difficulties = []
         self.strategy_history = []
 
-    def __str__(self):
-        return ''.join(["<", self.__class__.__name__,
-                        " values:", str(self.values),
-                        " players", str(self.players),
-                        " time_horizon:", str(self.time_horizon), ">"])
+    # def __str__(self):
+    #     return ''.join(["<", self.__class__.__name__,
+    #                     " values:", str(self.values),
+    #                     " players", str(self.players),
+    #                     " time_horizon:", str(self.time_horizon), ">"])
 
     def __repr__(self):
         return ''.join(["<", self.__class__.__name__,
@@ -71,28 +73,42 @@ class Game:
                         " players", str(self.players),
                         " time_horizon:", str(self.time_horizon), ">"])
 
+    def __str__(self):
+        return ",".join([str(self.time_horizon)] +
+                        [str(t[0]) for t in self.values] +
+                        [str(self.players[p]) for p in self.players] +
+                        [str(p) for p in self.profiles])
+
     def set_players(self, defenders, attackers, profiles):
         """
-        run this method to add new players to
+        run this method to the players to
         the game
         """
-        old_players_length = len(self.players)
-        players = defenders + attackers
-        for (i, p) in enumerate(players):
-            self.players[i + old_players_length] = p
-        end_defenders = old_players_length + len(defenders)
-        end_attackers = end_defenders + len(attackers)
-        self.defenders.extend(list(range(old_players_length,
-                                         end_defenders)))
-        self.attackers.extend(list(range(end_defenders,
-                                         end_attackers)))
-        if len(self.values[0]) != len(players):
+
+        #players = defenders + attackers
+        # old_players_length = len(self.players)
+        # for (i, p) in enumerate(players):
+        #     self.players[i + old_players_length] = p
+        # end_defenders = old_players_length + len(defenders)
+        # end_attackers = end_defenders + len(attackers)
+        # self.defenders.extend(list(range(old_players_length,
+        #                                  end_defenders)))
+        # self.attackers.extend(list(range(end_defenders,
+        #                                  end_attackers)))
+        for p in attackers:
+            self.players[p.id] = p
+            self.attackers.append(p.id)
+        for p in defenders:
+            self.players[p.id] = p
+            self.defenders.append(p.id)
+        if len(self.values[0]) != len(self.players):
             raise TuplesWrongLenghtError
-        self.profiles = attackers + profiles
+        np.random.shuffle(profiles)
+        self.profiles = profiles
         # hardcoding for 1 resource
-        attacker = self.players[self.attackers[0]]
-        self.difficulties = [difficulty(attacker, p)
-                             for p in profiles if p != attacker]
+        # attacker = self.players[self.attackers[0]]
+        # self.difficulties = [difficulty(attacker, p)
+        #                      for p in profiles if p != attacker]
 
     def play_game(self):
         for t in range(self.time_horizon):
@@ -137,6 +153,11 @@ class Game:
 
     def _json(self):
         return self.__dict__
+
+
+def zs_game(values, time_horizon):
+    payoffs = tuple((v, v) for v in values)
+    return Game(payoffs, time_horizon)
 
 
 def load(game_file):
@@ -186,6 +207,22 @@ def main():
     g.attackers.append(1)
     g.play_game()
     print(g.history)
+
+
+def example_game1():
+    example_targets = [1, 2]
+    example_values = tuple((v, v) for v in example_targets)
+    example_game = Game(example_values, 10)
+    return deepcopy(example_game)
+
+
+def example_game2():
+    g = example_game1()
+    d = Player(g, 0, 1)
+    a = Player(g, 1, 1)
+    p = Player(g, 1, 1)
+    g.set_players([d], [a], [p])
+    return deepcopy(g)
 
 
 if __name__ == '__main__':

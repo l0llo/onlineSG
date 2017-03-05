@@ -7,6 +7,7 @@ from math import log, sqrt
 from copy import copy, deepcopy
 from functools import reduce
 from collections import namedtuple
+from source.errors import NegativeProbabilityError
 import enum
 import re
 import numpy as np
@@ -236,7 +237,7 @@ class HOLMES(base_defenders.StackelbergDefender):
         self.belief = None
         self.L = L
         self.arms = None
-        self.learning = player.Learning.MAB
+        self.learning = player.Learning.EXPERT
         self.t_strategies = None
         self.tree = None
 
@@ -247,6 +248,8 @@ class HOLMES(base_defenders.StackelbergDefender):
             sel_targets = [t for t in targets if strategy[t] > 0]
             for epsilon in [0.0001, 0.001, 0.01, 0.1]:
                 t_strategies = []
+                while len([x for x in strategy if x < epsilon]):
+                    epsilon /= 2
                 for t in sel_targets:
                     strategy = copy(self.br_stackelberg())
                     for i, s in enumerate(strategy):
@@ -263,6 +266,8 @@ class HOLMES(base_defenders.StackelbergDefender):
                               for i, t in enumerate(sel_targets)]
                 if functools.reduce(lambda x, y: x and y, equalities):
                     break
+            if len([x for x in strategy if x < epsilon]):
+                raise NegativeProbabilityError([strategy, epsilon])
             self.t_strategies = t_strategies
         return self.t_strategies
 
@@ -273,7 +278,8 @@ class HOLMES(base_defenders.StackelbergDefender):
         """
         if o is None:
             o = self.game.history[-1][1][0]  # suppose 1 adversary, 1 resource
-        update = {k: k.last_strategy[o] * self.belief[k] for k in self.profiles}
+        update = {k: k.last_strategy[o] * self.belief[k]
+                  for k in self.profiles}
         eta = 1 / sum(update.values())
         update = {k: update[k] * eta for k in update}  # normalization
         return update
@@ -380,6 +386,10 @@ class HOLMES(base_defenders.StackelbergDefender):
         d.pop("K", None)
         d.pop("learning", None)
         return d
+
+    def __str__(self):
+        return "-".join([super().__str__()] +
+                        [str(self.L)])
 
 
 class B2BW2W(base_defenders.StackelbergDefender):

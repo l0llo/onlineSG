@@ -77,3 +77,11 @@ class UnparsableProfile(OSG_Error):
 
     def __str__(self):
         return "Can't parse an adversary profile: " + repr(self.e)
+
+
+class NegativeProbabilityError(OSG_Error):
+    def __init__(self, value):
+        self.value = value
+
+    def __str__(self):
+        return "There is a negative probability: " + repr(self.e)

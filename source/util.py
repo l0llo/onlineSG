@@ -55,10 +55,6 @@ def gen_name(distribution):
     return ''.join(["-" + str(d).split('.')[1] for d in distribution])
 
 
-def gen_game(targets, time_horizon):
-    return str(time_horizon) + "," + "".join([str(t) + "," for t in targets])
-
-
 def print_targets(targets):
     return str(targets[0]) + "".join(["_" + str(t) for t in targets[1:]])
 
@@ -206,7 +202,7 @@ def move_str(g, m=None):
             l1 += "□\t"
         else:
             l1 += " \t"
-    l2 = "".join([str(i[0]) + "\t" for i in g.values])
+    l2 = "".join([str(round(i[0], 3)) + "\t" for i in g.values])
     l3 = ""
     for i in range(len(g.values)):
         if m[1][0] == i:
@@ -345,13 +341,6 @@ def translate(targets):
         return translate(targets)
 
 
-def print_header(targets, profiles):
-    return ("Name,T," + ",".join(str(i) for i in range(len(targets))) +
-           ",Defender,Attacker," + ",".
-            join(["Profile" for x in range(len(profiles[0]['others']))]) +
-            "\n")
-
-
 def print_row(targets, time_horizon, d, p):
     return (",".join([str(i) for i in ([d +"_vs_" + str(p["i"])] +
                                        [time_horizon] + targets + [d] +
@@ -383,3 +372,34 @@ def gen_setting(T, P, targets_dict, time_horizon):
                      "others": [print_adv(a) for a in att
                                 if a != att[index]], "i": index})
     return targets, profiles
+
+
+def gen_conf_row(name, time_horizon, targets, def_str, att_str,
+                 pro_str_lst, att_incl=False):
+    if att_incl:
+        pro_str_lst.append(att_str)
+    return ",".join([name, str(time_horizon)] + [str(t) for t in targets] +
+                    [def_str, att_str] + pro_str_lst) + "\n"
+
+
+def print_header(targets, P, att_incl=False):
+    return ("Name,T," + ",".join(str(i) for i in range(len(targets))) +
+            ",Defender,Attacker," +
+            ",".join(["Profile" for x in range(P + int(att_incl))]) +
+            "\n")
+
+
+def gen_profiles(targets, p_pair_lst):
+    """
+    the p_pair_lst is formed by pairs of this type:
+    (attacker_class, number)
+    which indicate what should be the composition of the profiles list
+    """
+    import source.game as game
+
+    mock_game = game.zs_game(targets, 1)
+    profiles = []
+    for c, n in p_pair_lst:
+        for i in range(n):
+            profiles.append(c(mock_game, 1, 1))
+    return profiles
