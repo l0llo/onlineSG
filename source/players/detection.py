@@ -269,7 +269,12 @@ class HOLMES(base_defenders.StackelbergDefender):
             if len([x for x in strategy if x < epsilon]):
                 raise NegativeProbabilityError([strategy, epsilon])
             self.t_strategies = t_strategies
-        return self.t_strategies
+        if len([k for k in self.profiles
+               if ((k.__class__.name == attackers.StackelbergAttacker.name) and
+                   self.belief[k] > 0)]):
+            return self.t_strategies
+        else:
+            return []
 
     def update_belief(self, o=None):
         """
