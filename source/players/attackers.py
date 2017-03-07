@@ -12,7 +12,7 @@ class StackelbergAttacker(player.Attacker):
     strategy that best responds to it.
     """
 
-    name = "stackelberg"
+    name = "sta"
     pattern = re.compile(r"^" + name + "\d*$")
 
     def compute_strategy(self):
@@ -105,7 +105,7 @@ class StochasticAttacker(player.Attacker):
     It attacks according to a fixed 
     """
 
-    name = "stochastic_attacker"
+    name = "sto"
     pattern = re.compile(r"^" + name + r"(\d+(-\d+(\.\d+)?)*)?$")
 
     @classmethod

@@ -3,6 +3,8 @@ import os
 import pandas as pd
 from math import sqrt
 import matplotlib.pyplot as plt
+import matplotlib
+import pickle
 from collections import namedtuple
 Difficulty = namedtuple("Difficulty", ["gap", "norm_gap", "similarity"])
 
@@ -104,6 +106,43 @@ def gen_header(l):
 #                 bbox_inches='tight')
 #     plt.show()
 
+def plot_conf2(fun_str, comp, path, name=None):
+    fig = plt.figure()
+    ax = fig.add_axes([0.1, 0.1, 0.6, 0.75])
+    cmap = plt.get_cmap('gnuplot')
+    colors = [cmap(i) for i in np.linspace(0, 1, len(comp))]
+    z = 1.96
+    if name is None:
+        name = fun_str
+    for i, c in enumerate(comp):
+        f = [e.__dict__[fun_str] for e in c.experiments]
+        avg_f = (sum(f, np.zeros(len(f[0]))) / len(f))
+        variances = (sum([[(p - avg_f[j]) * (p - avg_f[j])
+                           for j, p in enumerate(f[i])]
+                          for i, e in enumerate(c.experiments)],
+                         np.zeros(len(f[0]))) / (len(f) - 1))
+        upper_bound = [a + z * sqrt(variances[i] / len(f))
+                       for i, a in enumerate(avg_f)]
+        lower_bound = [a - z * sqrt(variances[i] / len(f))
+                       for i, a in enumerate(avg_f)]
+        ax.plot(avg_f, label=c.name,
+                 color=colors[i])
+        ax.fill_between(list(range(len(lower_bound))), upper_bound,
+                             lower_bound, color=colors[i], alpha=0.3, label=c.name)
+        ax.set_ylabel(fun_str)
+        ax.set_title(path + "/" + name + ".png" + "\n")  # +
+                  #str([v[0] for v in comp[0].game.values]))
+        handles, labels = ax.get_legend_handles_labels()
+        handles = [h for h in handles if isinstance(h, matplotlib.lines.Line2D )]
+        labels = [h._label for h in handles]
+        ax.legend(loc=2, bbox_to_anchor=(1, 1), borderaxespad=0.,
+                  fancybox=True, shadow=True, handles=handles, labels=labels)
+        fig.savefig(path + "/" + name + ".png",
+                    bbox_inches='tight')
+        with open(path + "/plot", mode='w+b') as file:
+            pickle.dump(fig, file)
+
+
 
 def plot_conf(fun_str, comp, path, name=None, show=False):
     plt.close()
@@ -163,7 +202,7 @@ def plot_from_csv(fun, comp, path, name=None):
                  color=colors[i])
         plt.fill_between(list(range(len(lower_bound))), upper_bound,
                          lower_bound, color=colors[i], alpha=0.3)
-    plt.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.)
+    plt.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.,)
     plt.ylabel(fun.__name__)
     plt.title(path + "/" + name + ".png" + "\n" +
               str([v[0] for v in comp[0].game.values]))
@@ -385,7 +424,7 @@ def gen_conf_row(name, time_horizon, targets, def_str, att_str,
 def print_header(targets, P, att_incl=False):
     return ("Name,T," + ",".join(str(i) for i in range(len(targets))) +
             ",Defender,Attacker," +
-            ",".join(["Profile" for x in range(P + int(att_incl))]) +
+            ",".join(["Profile" for x in range(P + int( att_incl))]) +
             "\n")
 
 
