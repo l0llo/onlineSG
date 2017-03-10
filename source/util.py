@@ -126,14 +126,14 @@ def plot_conf2(fun_str, comp, path, name=None):
         lower_bound = [a - z * sqrt(variances[i] / len(f))
                        for i, a in enumerate(avg_f)]
         ax.plot(avg_f, label=c.name,
-                 color=colors[i])
+                color=colors[i])
         ax.fill_between(list(range(len(lower_bound))), upper_bound,
-                             lower_bound, color=colors[i], alpha=0.3, label=c.name)
+                        lower_bound, color=colors[i], alpha=0.3, label=c.name)
         ax.set_ylabel(fun_str)
-        ax.set_title(path + "/" + name + ".png" + "\n")  # +
-                  #str([v[0] for v in comp[0].game.values]))
+        ax.set_title(path + "/" + name + ".png" + "\n")
         handles, labels = ax.get_legend_handles_labels()
-        handles = [h for h in handles if isinstance(h, matplotlib.lines.Line2D )]
+        handles = [h for h in handles if isinstance(h,
+                                                    matplotlib.lines.Line2D)]
         labels = [h._label for h in handles]
         ax.legend(loc=2, bbox_to_anchor=(1, 1), borderaxespad=0.,
                   fancybox=True, shadow=True, handles=handles, labels=labels)
@@ -142,7 +142,6 @@ def plot_conf2(fun_str, comp, path, name=None):
         with open(path + "/plot", mode='w+b') as file:
             pickle.dump(fig, file)
         plt.close(fig)
-
 
 
 def plot_conf(fun_str, comp, path, name=None, show=False):
