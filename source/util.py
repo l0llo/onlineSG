@@ -129,21 +129,21 @@ def plot_conf2(fun_str, comp, path, name=None):
                 color=colors[i])
         ax.fill_between(list(range(len(lower_bound))), upper_bound,
                         lower_bound, color=colors[i], alpha=0.3, label=c.name)
-        ax.set_ylabel(fun_str)
-        ax.set_title(path + "/" + name + ".png" + "\n")
-        handles, labels = ax.get_legend_handles_labels()
-        handles = [h for h in handles if isinstance(h,
-                                                    matplotlib.lines.Line2D)]
-        labels = [h._label for h in handles]
-        ax.legend(loc=2, bbox_to_anchor=(1, 1), borderaxespad=0.,
-                  fancybox=True, shadow=True, handles=handles, labels=labels)
-        fig.savefig(path + "/" + name + ".png",
-                    bbox_inches='tight')
-        with open(path + "/plot", mode='w+b') as file:
-            pickle.dump(fig, file)
-        plt.close(fig)
+    ax.set_ylabel(fun_str)
+    ax.set_title(path + "/" + name + ".png" + "\n")
+    handles, labels = ax.get_legend_handles_labels()
+    handles = [h for h in handles if isinstance(h,
+                                                matplotlib.lines.Line2D)]
+    labels = [h._label for h in handles]
+    ax.legend(loc=2, bbox_to_anchor=(1, 1), borderaxespad=0.,
+              fancybox=True, shadow=True, handles=handles, labels=labels)
+    fig.savefig(path + "/" + name + ".png",
+                bbox_inches='tight')
+    with open(path + "/plot", mode='w+b') as file:
+        pickle.dump(fig, file)
+    plt.close(fig)
 
-
+            
 def plot_conf(fun_str, comp, path, name=None, show=False):
     plt.close()
     cmap = plt.get_cmap('gnuplot')
