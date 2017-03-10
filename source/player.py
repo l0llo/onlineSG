@@ -2,6 +2,7 @@ import numpy as np
 import re
 from copy import deepcopy
 import enum
+from source.errors import AlreadyFinalizedError
 
 Learning = enum.Enum('Learning', 'MAB EXPERT')
 
@@ -37,6 +38,16 @@ class Player:
         self.id = id
         self.resources = resources
         self.last_strategy = None
+        self._finalized = False
+
+    def finalize_init(self):
+        if not self._finalized:
+            self._finalized = True
+        else:
+            raise AlreadyFinalizedError(self)
+
+    def tau(self):
+        return len(self.game.history)
 
     def play_strategy(self):
         self.last_strategy = self.compute_strategy()
@@ -93,7 +104,6 @@ class Defender(Player):
         """
         super().__init__(game, id, resources)
         self.feedbacks = []
-        self.tau = 0
 
     def receive_feedback(self, feedback):
         if feedback is not None:
@@ -111,8 +121,6 @@ class Defender(Player):
                 elif isinstance(self.arms, dict):
                     for a in self.arms:
                         self.arms[a].receive_feedback(None)
-
-        self.tau += 1
 
     def last_reward(self):
         return sum(self.feedbacks[-1].values())

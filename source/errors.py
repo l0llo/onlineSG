@@ -84,4 +84,20 @@ class NegativeProbabilityError(OSG_Error):
         self.value = value
 
     def __str__(self):
-        return "There is a negative probability: " + repr(self.e)
+        return "There is a negative probability: " + repr(self.value)
+
+
+class AlreadyFinalizedError(OSG_Error):
+    def __init__(self, value):
+        self.value = value
+
+    def __str__(self):
+        return "Player " + repr(self.e) + " has already been finalized"
+
+
+class NotFinalizedError(OSG_Error):
+    def __init__(self, value):
+        self.value = value
+
+    def __str__(self):
+        return "Player " + repr(self.e) + " has't been finalized yet"

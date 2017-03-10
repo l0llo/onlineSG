@@ -50,7 +50,6 @@ Extend the number of defenders
 import source.player as player
 import source.players.attackers as attackers
 import source.players.base_defenders as base_defenders
-import source.players.detection as detection
 import source.standard_player_parsers as spp
 from math import log, sqrt
 from copy import deepcopy
@@ -271,31 +270,31 @@ class STA_USTO_MAB(base_defenders.MABDefender):
         super().__init__(game, id, resources, *arms)
 
 
-class STA_STO_Holmes1(detection.HOLMES):
+# class STA_STO_Holmes1(detection.HOLMES):
 
-    name = "sta_sto_holmes1"
-    pattern = re.compile(r"^" + name + r"(\d+(-\d+(\.\d+)?)*)?$")
+#     name = "sta_sto_holmes1"
+#     pattern = re.compile(r"^" + name + r"(\d+(-\d+(\.\d+)?)*)?$")
 
-    @classmethod
-    def parse(cls, player_type, game, id):
-        return spp.stochastic_parse(cls, player_type, game, id)
+#     @classmethod
+#     def parse(cls, player_type, game, id):
+#         return spp.stochastic_parse(cls, player_type, game, id)
 
-    def __init__(self, game, id, resources, *distribution):
-        other_kinds = [attackers.StochasticAttacker(game, 1, 1, *distribution)]
-        strategy_aware = attackers.StackelbergAttacker(game, 1, 1)
-        L = 1
-        super().__init__(game, 0, 1, strategy_aware, other_kinds, None, L)
+#     def __init__(self, game, id, resources, *distribution):
+#         other_kinds = [attackers.StochasticAttacker(game, 1, 1, *distribution)]
+#         strategy_aware = attackers.StackelbergAttacker(game, 1, 1)
+#         L = 1
+#         super().__init__(game, 0, 1, strategy_aware, other_kinds, None, L)
 
-    def compute_strategy(self):
-        if self.tau == 0:
-            mock_sta_def = base_defenders.StackelbergDefender(self.game, 0, 1)
-            mock_sto_def = (base_defenders.
-                            KnownStochasticDefender(self.game, 0, 1,
-                                                    * self.K2[0].
-                                                    distribution))
-            self.br_strategies = [tuple(mock_sto_def.br_stochastic()),
-                                  tuple(mock_sta_def.br_stackelberg())]
-        return super().compute_strategy()
+#     def compute_strategy(self):
+#         if self.tau == 0:
+#             mock_sta_def = base_defenders.StackelbergDefender(self.game, 0, 1)
+#             mock_sto_def = (base_defenders.
+#                             KnownStochasticDefender(self.game, 0, 1,
+#                                                     * self.K2[0].
+#                                                     distribution))
+#             self.br_strategies = [tuple(mock_sto_def.br_stochastic()),
+#                                   tuple(mock_sta_def.br_stackelberg())]
+#         return super().compute_strategy()
 
 
 class BR_Expert(base_defenders.ExpertDefender):
@@ -311,11 +310,10 @@ class BR_Expert(base_defenders.ExpertDefender):
         experts = []
         super().__init__(game, id, resources, algo, *experts)
 
-    def compute_strategy(self):
-        if self.tau == 0:
-            self.arms = [p.get_best_responder() for p
-                         in self.game.profiles]
-        return super().compute_strategy()
+    def finalize_init(self):
+        profiles = self.game.get_profiles_copies()
+        self.arms = [p.get_best_responder() for p in profiles]
+        super().finalize_init()
 
     def __str__(self):
         return "-".join([super().__str__()] + ["1"])
@@ -334,11 +332,10 @@ class BR_MAB(base_defenders.MABDefender):
         experts = []
         super().__init__(game, id, resources, algo, *experts)
 
-    def compute_strategy(self):
-        if self.tau == 0:
-            self.arms = [p.get_best_responder() for p
-                         in self.game.profiles]
-        return super().compute_strategy()
+    def finalize_init(self):
+        profiles = self.game.get_profiles_copies()
+        self.arms = [p.get_best_responder() for p in profiles]
+        super().finalize_init()
 
     def __str__(self):
         return "-".join([super().__str__()] + ["1"])

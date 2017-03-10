@@ -5,6 +5,8 @@ import source.errors as errors
 import numpy as np
 from math import exp
 import source.util as util
+from source.errors import NotFinalizedError
+
 
 class StackelbergAttacker(player.Attacker):
     """
@@ -31,7 +33,9 @@ class StackelbergAttacker(player.Attacker):
         return -sta_def.maxmin
 
     def get_best_responder(self):
-        return base_defenders.StackelbergDefender(self.game, 0)
+        br = base_defenders.StackelbergDefender(self.game, 0)
+        br.finalize_init()
+        return br
 
 
 class StackelbergAttackerR(player.Attacker):
@@ -151,11 +155,10 @@ class StochasticAttacker(player.Attacker):
         return self.exp_loss(s)
 
     def get_best_responder(self):
-        if self.distribution is not None:
-            return base_defenders.KnownStochasticDefender(self.game, 0, 1,
-                                                          *self.distribution)
-        else:
-            return base_defenders.UnknownStochasticDefender(self.game, 0)
+        br = base_defenders.KnownStochasticDefender(self.game, 0, 1,
+                                                    *self.distribution)
+        br.finalize_init()
+        return br
 
     def __str__(self):
         return "-".join([super().__str__()] +
@@ -185,6 +188,7 @@ class UnknownStochasticAttacker(player.Attacker):
     def get_best_responder(self):
         br = base_defenders.UnknownStochasticDefender2(self.game, 0,
                                                        mock_sto=self)
+        br.finalize_init()
         return br
 
     def exp_loss(self, input_strategy):

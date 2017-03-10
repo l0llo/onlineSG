@@ -109,6 +109,21 @@ class StrategyAwareDetector(base_defenders.StackelbergDefender):
         self.learning = player.Learning.EXPERT
         self.arms = None
 
+    def finalize_init(self):
+        self.K = self.game.get_profiles_copies()
+        self.belief = {k: 1 / (len(self.K)) for k in self.K}
+        self.strategy_aware = [k for k in self.K
+                               if (k.__class__ ==
+                                   attackers.StackelbergAttacker)][0]
+        self.K2 = copy(self.K)
+        self.K2.remove(self.strategy_aware)
+        experts = [k.get_best_responder() for k in self.K2]
+        self.exp_defender = (base_defenders.
+                             ExpertDefender(self.game, self.id,
+                                            self.resources, 1,
+                                            'fpl', *experts))
+        self.arms = [self.exp_defender]
+
     def update_belief(self, o=None):
         """
         returns an updated belief, given an observation.
@@ -146,23 +161,6 @@ class StrategyAwareDetector(base_defenders.StackelbergDefender):
         return target
 
     def compute_strategy(self):
-        if self.tau == 0:
-            self.K = deepcopy(self.game.profiles)
-            for p in self.K:
-                p.game = self.game  # copies need the real game!
-            self.belief = {k: 1 / (len(self.K)) for k in self.K}
-            self.strategy_aware = [k for k in self.K
-                                   if (k.__class__ ==
-                                       attackers.StackelbergAttacker)][0]
-            self.K2 = copy(self.K)
-            self.K2.remove(self.strategy_aware)
-            experts = [k.get_best_responder() for k in self.K2]
-            self.exp_defender = (base_defenders.
-                                 ExpertDefender(self.game, self.id,
-                                                self.resources, 1,
-                                                'fpl', *experts))
-            self.learning = player.Learning.EXPERT
-            self.arms = [self.exp_defender]
         if self.detection is None:
             self.exp_defender.play_strategy()
             t = self.find_t()
@@ -186,7 +184,7 @@ class StrategyAwareDetector(base_defenders.StackelbergDefender):
             for k in self.K:
                 k.play_strategy()
             conditions = []
-            if self.tau > 1:
+            if self.tau() > 2:
                 exceeded = []
                 targets = list(range(len(self.game.values)))
                 for i in self.K2:
@@ -196,11 +194,11 @@ class StrategyAwareDetector(base_defenders.StackelbergDefender):
                         # how many times he has played adv_moves
                         n = len([h for h in self.game.history
                                  if h[1][0] == t])
-                        sample_mean = n / (self.tau + 1)
+                        sample_mean = n / (self.tau())
                         #print(sample_mean)
                         p = i.last_strategy[t]  # STOCHASTIC ASSUMPTION!!!!!
                         conditions.append((abs(p - sample_mean) / 2) >
-                                          sqrt(2 * log(self.tau + 1) / (self.tau + 1)))
+                                          sqrt(2 * log(self.tau()) / (self.tau())))
                         #print(conditions[-1])
                     exceeded.append(reduce(lambda a, b: a or b, conditions))
                 if reduce(lambda a, b: a and b, exceeded):
@@ -240,6 +238,11 @@ class HOLMES(base_defenders.StackelbergDefender):
         self.learning = player.Learning.EXPERT
         self.t_strategies = None
         self.tree = None
+
+    def finalize_init(self):
+        self.profiles = self.game.get_profiles_copies()
+        self.belief = {k: 1 / (len(self.profiles)) for k in self.profiles}
+        self.arms = {k: k.get_best_responder() for k in self.profiles}
 
     def get_t_strategies(self):  # hardcoded for stackelberg!!!
         if self.t_strategies is None:
@@ -342,6 +345,7 @@ class HOLMES(base_defenders.StackelbergDefender):
                     p = state.p * p_t * p_x
                     new_state = State(b, r, p, g, a)
                     s.branches[(x, t)] = State_Node(new_state, dict())
+                    #print("p", p, "r", r)
                 if s.branches[(x, t)].state.p != 0:
                     if depth == 0:
                         exp_loss = sum([s.branches[(x, t)].state.b[k] *
@@ -349,6 +353,7 @@ class HOLMES(base_defenders.StackelbergDefender):
                                         for k in self.profiles])
                         regret = (-(s.branches[(x, t)].state.r) -
                                   exp_loss * self.L)
+                        #print("state", (x, t), "exp_loss", exp_loss, "regret", regret)
                         s.exp_regret += (s.branches[(x, t)].state.p * regret)
                     else:
                         regret, min_s = self.explore_state(s.branches[(x, t)],
@@ -360,10 +365,6 @@ class HOLMES(base_defenders.StackelbergDefender):
                 if k.__class__.name != attackers.StackelbergAttacker.name]
 
     def compute_strategy(self):
-        if self.tau == 0:
-            self.profiles = deepcopy(self.game.profiles)
-            self.belief = {k: 1 / (len(self.profiles)) for k in self.profiles}
-            self.arms = {k: k.get_best_responder() for k in self.profiles}
         state = State(b=self.belief,
                       r=0,
                       p=1,
@@ -388,8 +389,9 @@ class HOLMES(base_defenders.StackelbergDefender):
     def _json(self):
         d = super()._json()
         d.pop("belief", None)
-        d.pop("K", None)
+        d.pop("profiles", None)
         d.pop("learning", None)
+        d.pop("arms", None)
         return d
 
     def __str__(self):
@@ -416,7 +418,12 @@ class B2BW2W(base_defenders.StackelbergDefender):
         self.belief = None
         self.arms = None
         self.sel_arm = None
-        self.learning = player.Learning.MAB
+        self.learning = player.Learning.EXPERT
+
+    def finalize_init(self):
+        self.profiles = self.game.get_profiles_copies()
+        self.belief = {k: 1 / (len(self.profiles)) for k in self.profiles}
+        self.arms = {k: k.get_best_responder() for k in self.profiles}
 
     def update_belief(self, o=None):
         """
@@ -432,12 +439,6 @@ class B2BW2W(base_defenders.StackelbergDefender):
         return update
 
     def compute_strategy(self):
-        if self.tau == 0:
-            self.profiles = deepcopy(self.game.profiles)
-            for p in self.profiles:
-                p.game = self.game  # copies need the real game!
-            self.belief = {k: 1 / (len(self.profiles)) for k in self.profiles}
-            self.arms = {k: k.get_best_responder() for k in self.profiles}
         chosen = player.sample([self.belief[k] for k in self.profiles], 1)[0]
         self.sel_arm = self.arms[self.profiles[chosen]]
         return self.sel_arm.play_strategy()
@@ -453,6 +454,6 @@ class B2BW2W(base_defenders.StackelbergDefender):
         d = super()._json()
         d.pop("arms", None)
         d.pop("belief", None)
-        d.pop("K", None)
+        d.pop("profiles", None)
         d.pop("learning", None)
         return d

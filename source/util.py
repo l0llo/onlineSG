@@ -141,6 +141,7 @@ def plot_conf2(fun_str, comp, path, name=None):
                     bbox_inches='tight')
         with open(path + "/plot", mode='w+b') as file:
             pickle.dump(fig, file)
+        plt.close(fig)
 
 
 

@@ -105,6 +105,8 @@ class Game:
             raise TuplesWrongLenghtError
         np.random.shuffle(profiles)
         self.profiles = profiles
+        for i in self.players:
+            self.players[i].finalize_init()
         # hardcoding for 1 resource
         # attacker = self.players[self.attackers[0]]
         # self.difficulties = [difficulty(attacker, p)
@@ -138,6 +140,12 @@ class Game:
 
     def get_last_turn_payoffs(self, player_index):
         return self.get_player_payoffs(player_index, self.history[-1])
+
+    def get_profiles_copies(self):
+        profiles = deepcopy(self.profiles)
+        for p in profiles:
+            p.game = self  # copies need the real game!
+        return profiles
 
     def is_finished(self):
         return len(self.history) >= self.time_horizon
