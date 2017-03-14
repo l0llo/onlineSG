@@ -346,13 +346,8 @@ class UnknownStochasticDefender2(ExpertDefender):
         self.avg_rewards = dict()
 
     def finalize_init(self):
-        if not self._finalized:
-            self._finalized = True
-        else:
-            raise AlreadyFinalizedError(self)
-        if self.tau() == 0:
-            self.avg_rewards = {e: 0 for e in self.arms}
-        else:
+        super().finalize_init()
+        if self.tau() > 0:
             self.learn()
 
     def learn(self):

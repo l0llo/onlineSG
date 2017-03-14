@@ -178,12 +178,15 @@ class UnknownStochasticAttacker(player.Attacker):
         super().__init__(game, id, resources)
 
     def compute_strategy(self):
-        targets = list(range(len(self.game.values)))
-        weights = {t: 1 for t in targets}
-        for h in self.game.history:
-            weights[h[self.id][0]] += 1
-        norm = sum([weights[t] for t in targets])
-        return [weights[t] / norm for t in targets]
+        if self.tau() == 0:
+            return self.uniform_strategy(len(self.game.values))
+        else:
+            targets = list(range(len(self.game.values)))
+            weights = {t: 0 for t in targets}
+            for h in self.game.history:
+                weights[h[self.id][0]] += 1
+            norm = sum([weights[t] for t in targets])
+            return [weights[t] / norm for t in targets]
 
     def get_best_responder(self):
         br = base_defenders.UnknownStochasticDefender2(self.game, 0,

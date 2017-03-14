@@ -1,0 +1,7 @@
+import source.player as player
+
+class FABULOUS(player.Defender):
+    def __init__(self, game, id, resource=1):
+        super().__init__(game, id, resources)
+        
+        

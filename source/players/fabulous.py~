@@ -1,0 +1,5 @@
+import source.base_defender as base_defender
+class FABULOUS(base_defender.StackelbergDefender):
+    def __init__(self):
+        self
+        

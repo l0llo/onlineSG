@@ -6,6 +6,7 @@ import source.players.attackers as attackers
 import source.players.base_defenders as base_defenders
 import source.players.defenders as defenders
 import source.players.detection as detection
+import source.players.fabulous as fabulous
 from source.errors import *
 
 
@@ -82,7 +83,8 @@ def parse_player(player_type, game, id):
                            get_classes(attackers),
                            get_classes(base_defenders),
                            get_classes(defenders),
-                           get_classes(detection)], [])
+                           get_classes(detection),
+                           get_classes(fabulous)], [])
     for c in players_classes:
         parsed = c.parse(player_type, game, id)
         if parsed:
