@@ -50,8 +50,8 @@ class FABULOUS(base_defenders.UnknownStochasticDefender2):
                      sqrt(-log(p) / (self.tau())))
                 interval = mpmath.mpi(loss - b, loss + b)
                 if lt.loss in interval:
-                    print("lt_loss", lt.loss, "is in", interval)
-                    print("with b", b, "and loss", loss)
+                    # print("lt_loss", lt.loss, "is in", interval)
+                    # print("with b", b, "and loss", loss)
                     return lt.br
         # MODIFY to take into account the not-Unknown case
         # if I have not returned yet, then I must use fpl
