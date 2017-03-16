@@ -1,5 +1,6 @@
 import source.player as player
 import source.players.base_defenders as base_defenders
+import source.standard_player_parsers as spp
 import re
 import source.errors as errors
 import numpy as np
@@ -17,6 +18,10 @@ class StackelbergAttacker(player.Attacker):
     name = "sta"
     pattern = re.compile(r"^" + name + "\d*$")
 
+    def __init__(self, g, id, resources=1):
+        super().__init__(g, id, resources)
+        self.br = None
+
     def compute_strategy(self):
         return self.best_respond(self.game.strategy_history[-1])
 
@@ -33,9 +38,11 @@ class StackelbergAttacker(player.Attacker):
         return -sta_def.maxmin
 
     def get_best_responder(self):
-        br = base_defenders.StackelbergDefender(self.game, 0)
-        br.finalize_init()
-        return br
+        if self.br is None:
+            br = base_defenders.StackelbergDefender(self.game, 0)
+            br.finalize_init()
+            self.br = br
+        return self.br
 
 
 class StackelbergAttackerR(player.Attacker):
@@ -211,40 +218,27 @@ class UnknownStochasticAttacker(player.Attacker):
         return self.exp_loss(s)
 
 
-class QuantalResponseAttacker(player.Attacker):
-    """    
-    """
+class SUQR(player.Attacker):
 
-    name = "QR"
-    pattern = re.compile(r"^" + name + r"(\d+(-(\d+(\.\d+)?))?)?$")
+    name = "suqr"
+    pattern = re.compile(r"^" + name + r"\d+(\.\d+)?(-\d+(\.\d+)?){3}$")
 
-    def __init__(self, game, id, resources=1, learning_rate=1):
-        super().__init__(game, id, resources)
-        self.learning_rate = learning_rate  # not used yet
+    @classmethod
+    def parse(cls, player_type, game, id):
+        return spp.parse1(cls, player_type, game, id, spp.parse_float)
+
+    def __init__(self, g, pl_id, L, w1, w2, c):
+        super().__init__(g, pl_id, 1)
+        self.L = L
+        self.w1 = -w1
+        self.w2 = w2
+        self.c = c
 
     def compute_strategy(self):
-        targets = range(len(self.game.values))
-        strategies = self.game.strategy_history[-1]
-        defenders_strategies = [np.array(strategies[d])
-                                for d in self.game.defenders]
-        not_norm_coverage = sum(defenders_strategies)
-
-        coverage = not_norm_coverage / np.linalg.norm(not_norm_coverage,
-                                                      ord=1)
-        values = np.array([self.game.values[t][self.id] for t in targets])
-        expected_payoffs = values * (np.ones(len(targets)) - coverage)
-        return self.quantal_response(expected_payoffs)
-
-    def quantal_response(self, utilities):
-        if not self.game.history:
-            return self.br_uniform()
-        weights = []
-        time = len(self.game.history)
-        # learning rate updated
-        if time > 1:
-            self.learning_rate = self.learning_rate / (time - 1) * time
+        x = self.game.strategy_history[-1][0]
         targets = list(range(len(self.game.values)))
-        weights = np.array([exp(self.learning_rate * utilities[t])
-                            for t in targets])
-        weights = weights / np.linalg.norm(weights, ord=1)  # normalization
-        return [float(w) for w in weights]
+        R = [v[self.id] for v in self.game.values]
+        q = np.array([exp(self.L * (self.w1 * x[t] + self.w2 * R[t] + self.c))
+                      for t in targets])
+        q /= np.linalg.norm(q, ord=1)
+        return list(q)
