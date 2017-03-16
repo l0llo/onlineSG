@@ -45,10 +45,10 @@ class FABULOUS(base_defenders.UnknownStochasticDefender2):
                                   self.avg_loss + b)
             for p in sorted(self.profiles, key=lambda x: self.exp_adv_loss[x]):
                 if self.exp_adv_loss[p] in interval:
-                    print("exp_loss", self.exp_adv_loss[p], "is in", interval)
-                    print("with b", b, "and avg_loss", self.avg_loss)
+                    # print("exp_loss", self.exp_adv_loss[p], "is in", interval)
+                    # print("with b", b, "and avg_loss", self.avg_loss)
                     return p.get_best_responder().compute_strategy()
-        print("unknown")
+        # print("unknown")
         # MODIFY to take into account the not-Unknown case
         # if I have not returned yet, then I must use fpl
         return super().compute_strategy()
