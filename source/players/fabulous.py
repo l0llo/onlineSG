@@ -18,7 +18,6 @@ class FABULOUS(base_defenders.UnknownStochasticDefender2):
     def __init__(self, g, index, resources=1, power=2):
         super().__init__(g, index, resources)
         self.profiles = []
-        self.unk_included = True
         self.sta_att = None
         self.avg_loss = 0
         self.exp_adv_loss = None
@@ -64,6 +63,10 @@ class FABULOUS(base_defenders.UnknownStochasticDefender2):
             self.avg_loss = ((self.avg_loss * (self.tau() - 1) -
                               self.feedbacks[-1]["total"]) / self.tau())
 
+    def _json(self):
+        d = super()._json()
+        d.pop("exp_adv_loss", None)
+        return d
 # LossTuple = namedtuple('LossTuple', ['loss', 'br', 'attacker'])
 
 
