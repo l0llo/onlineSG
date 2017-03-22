@@ -495,9 +495,9 @@ class FB2BW2W(B2BW2W):
         return update
 
     def compute_strategy(self):
-        norm_belief = [self.belief[p] for p in self.profiles]
+        norm_belief = np.array([self.belief[p] for p in self.profiles])
         norm_belief /= sum(norm_belief)
-        chosen = player.sample(norm_belief, 1)[0]
+        chosen = player.sample(list(norm_belief), 1)[0]
         self.sel_arm = self.arms[self.profiles[chosen]]
         return self.sel_arm.play_strategy()
 
