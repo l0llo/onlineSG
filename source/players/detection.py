@@ -3,7 +3,7 @@ import source.players.base_defenders as base_defenders
 import source.game as game
 import source.players.attackers as attackers
 import source.standard_player_parsers as spp
-from math import log, sqrt
+from math import log, sqrt, exp
 from copy import copy, deepcopy
 from functools import reduce
 from collections import namedtuple
@@ -503,12 +503,8 @@ class FB2BW2W(B2BW2W):
         for i,b in enumerate(norm_belief):
             if b is None:
                 norm_belief[i] = 0
-            elif b == 0:
-                # if the log-likelihood is zero, the likelihood is 1
-                self.sel_arm = self.arms[self.profiles[i]]
-                return self.sel_arm.play_strategy()
             else:
-                norm_belief[i] = 1 / -b
+                norm_belief[i] = exp(b)
 
         norm_belief = np.array(norm_belief)
         norm_belief /= np.linalg.norm(norm_belief, ord=1)
