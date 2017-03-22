@@ -399,7 +399,7 @@ class HOLMES(base_defenders.StackelbergDefender):
                         [str(self.L)])
 
 
-class B2BW2W(base_defenders.StackelbergDefender):
+class B2BW2W(player.Defender):
     """
     "Bread to bread, wine to wine"
     """
@@ -457,3 +457,57 @@ class B2BW2W(base_defenders.StackelbergDefender):
         d.pop("profiles", None)
         d.pop("learning", None)
         return d
+
+class MB2BW2W(B2BW2W):
+
+    name = "mb2bw2w"
+    pattern = re.compile(r"^" + name + r"\d+$")
+
+    def compute_strategy(self):
+        chosen = max(self.profiles, key=lambda x: self.belief[x])
+        self.sel_arm = self.arms[chosen]
+        return self.sel_arm.play_strategy()
+
+class FB2BW2W(B2BW2W):
+
+    name = "fb2bw2w"
+    pattern = re.compile(r"^" + name + r"\d+$")
+
+    def finalize_init(self):
+        self.profiles = self.game.get_profiles_copies()
+        self.belief = {k: 0 for k in self.profiles}
+        self.arms = {k: k.get_best_responder() for k in self.profiles}
+
+    def update_belief(self, o=None):
+        """
+        returns an updated belief, given an observation.
+        If the observation is None, it uses the last game history
+        """
+        if o is None:
+            o = self.game.history[-1][1][0]  # suppose 1 adversary, 1 resource
+        update = dict()
+        for p in self.profiles:
+            if p.last_strategy[o] == 0 or self.belief[p] is None:
+               update[p] = None
+            else:
+               update[p] = ((self.belief[p] * (self.tau() -1) +
+                             log(p.last_strategy[o])) / self.tau()) 
+        return update
+
+    def compute_strategy(self):
+        norm_belief = [self.belief[p] for p in self.profiles]
+        norm_belief /= sum(norm_belief)
+        chosen = player.sample(norm_belief, 1)[0]
+        self.sel_arm = self.arms[self.profiles[chosen]]
+        return self.sel_arm.play_strategy()
+
+
+class MFB2BW2W(FB2BW2W):
+
+    name = "mfb2bw2w"
+    pattern = re.compile(r"^" + name + r"\d+$")
+
+    def compute_strategy(self):
+        chosen = max(self.profiles, key=lambda x: self.belief[x])
+        self.sel_arm = self.arms[chosen]
+        return self.sel_arm.play_strategy()
