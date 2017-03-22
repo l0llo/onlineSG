@@ -464,7 +464,7 @@ class MB2BW2W(B2BW2W):
     pattern = re.compile(r"^" + name + r"\d+$")
 
     def compute_strategy(self):
-        if tau() == 0:
+        if self.tau() == 0:
             return self.uniform_strategy(len(self.game.values))
         chosen = max(self.profiles, key=lambda x: self.belief[x])
         self.sel_arm = self.arms[chosen]
