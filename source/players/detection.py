@@ -464,6 +464,8 @@ class MB2BW2W(B2BW2W):
     pattern = re.compile(r"^" + name + r"\d+$")
 
     def compute_strategy(self):
+        if tau() == 0:
+            return self.uniform_strategy(len(self.game.values))
         chosen = max(self.profiles, key=lambda x: self.belief[x])
         self.sel_arm = self.arms[chosen]
         return self.sel_arm.play_strategy()
@@ -495,8 +497,22 @@ class FB2BW2W(B2BW2W):
         return update
 
     def compute_strategy(self):
-        norm_belief = np.array([self.belief[p] for p in self.profiles])
-        norm_belief /= sum(norm_belief)
+        if self.tau() == 0:
+            return self.uniform_strategy(len(self.game.values))
+        norm_belief = [self.belief[p] for p in self.profiles]
+        for i,b in enumerate(norm_belief):
+            if b is None:
+                norm_belief[i] = 0
+            elif b == 0:
+                # if the log-likelihood is zero, the likelihood is 1
+                self.sel_arm = self.arms[self.profiles[i]]
+                return self.sel_arm.play_strategy()
+            else:
+                norm_belief[i] = 1 / b
+
+        norm_belief = np.array(norm_belief)
+        norm_belief /= np.linalg.norm(norm_belief, ord=1)
+
         chosen = player.sample(list(norm_belief), 1)[0]
         self.sel_arm = self.arms[self.profiles[chosen]]
         return self.sel_arm.play_strategy()
@@ -508,6 +524,8 @@ class MFB2BW2W(FB2BW2W):
     pattern = re.compile(r"^" + name + r"\d+$")
 
     def compute_strategy(self):
+        if self.tau() == 0:
+            return self.uniform_strategy(len(self.game.values))
         chosen = max(self.profiles, key=lambda x: self.belief[x])
         self.sel_arm = self.arms[chosen]
         return self.sel_arm.play_strategy()
