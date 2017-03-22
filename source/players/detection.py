@@ -504,11 +504,15 @@ class FB2BW2W(B2BW2W):
             if b is None:
                 norm_belief[i] = 0
             else:
-                norm_belief[i] = exp(b)
+                norm_belief[i] = exp(b * self.tau()) 
 
         norm_belief = np.array(norm_belief)
-        norm_belief /= np.linalg.norm(norm_belief, ord=1)
-
+        norm = np.linalg.norm(norm_belief, ord=1)
+        if round(norm, 100) == 0:
+            chosen = max(self.profiles, key=lambda x: self.belief[x])
+            self.sel_arm = self.arms[chosen]
+            return self.sel_arm.play_strategy()
+        norm_belief /=  norm
         chosen = player.sample(list(norm_belief), 1)[0]
         self.sel_arm = self.arms[self.profiles[chosen]]
         return self.sel_arm.play_strategy()
