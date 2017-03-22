@@ -508,7 +508,7 @@ class FB2BW2W(B2BW2W):
                 self.sel_arm = self.arms[self.profiles[i]]
                 return self.sel_arm.play_strategy()
             else:
-                norm_belief[i] = 1 / b
+                norm_belief[i] = 1 / -b
 
         norm_belief = np.array(norm_belief)
         norm_belief /= np.linalg.norm(norm_belief, ord=1)
