@@ -390,10 +390,12 @@ class SUQRDefender(player.Defender):
 
     def br_suqr(self):
         if self.br_suqr_strategy is None:
-            fun = lambda x: self.mock_suqr.exp_loss({0: x, 1: None})
-            bnds = tuple([(0, 1) for t in range(len(self.game.values))])
+            def fun(x):
+                return self.mock_suqr.exp_loss({0: x, 1: None})
+            targets = list(range((len(self.game.values))))
+            bnds = tuple([(0, 1) for t in targets])
             cons = ({'type': 'eq', 'fun': lambda x: sum(x) - 1})
-            res = scipy.optimize.minimize(fun, util.gen_distr(3),
+            res = scipy.optimize.minimize(fun, util.gen_distr(len(targets)),
                                           method='SLSQP', bounds=bnds,
                                           constraints=cons, tol=0.000001)
             self.br_suqr_strategy = list(res.x)
