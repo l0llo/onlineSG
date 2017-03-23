@@ -7,7 +7,8 @@ import re
 import numpy as np
 import enum
 import gurobipy
-
+import scipy.optimize
+import source.util as util
 
 ExpAlgorithm = enum.Enum('ExpAlgorithm', 'fpl wm fpls')
 
@@ -359,3 +360,41 @@ class UnknownStochasticDefender2(ExpertDefender):
                           1: self.mock_sto.last_strategy}
             self.avg_rewards[self.arms[i]] = -(self.mock_sto.
                                                exp_loss(strategies))
+
+
+class SUQRDefender(player.Defender):
+
+    name = "suqrdef"
+    pattern = re.compile(r"^" + name + r"\d+(\.\d+)?(-\d+(\.\d+)?){3}$")
+
+    @classmethod
+    def parse(cls, player_type, game, id):
+        return spp.parse1(cls, player_type, game, id, spp.parse_float)
+
+    def __init__(self, g, pl_id, L=1, w1=3, w2=0, c=2, mock_suqr=None):
+        super().__init__(g, pl_id, 1)
+        self.br_suqr_strategy = None
+        import source.players.attackers as attackers
+        if mock_suqr is None:
+            self.mock_suqr = attackers.SUQR(g, 1, L, w1, w2, c)
+        else:
+            self.mock_suqr = mock_suqr
+
+    def finalize_init(self):
+        super().finalize_init()
+        if not self.mock_suqr._finalized:
+            self.mock_suqr.finalize_init()
+
+    def compute_strategy(self):
+        return self.br_suqr()
+
+    def br_suqr(self):
+        if self.br_suqr_strategy is None:
+            fun = lambda x: self.mock_suqr.exp_loss({0: x, 1: None})
+            bnds = tuple([(0, 1) for t in range(len(self.game.values))])
+            cons = ({'type': 'eq', 'fun': lambda x: sum(x) - 1})
+            res = scipy.optimize.minimize(fun, util.gen_distr(3),
+                                          method='SLSQP', bounds=bnds,
+                                          constraints=cons, tol=0.000001)
+            self.br_suqr_strategy = list(res.x)
+        return self.br_suqr_strategy

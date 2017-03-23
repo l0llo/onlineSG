@@ -9,7 +9,7 @@ import re
 class FABULOUS(base_defenders.UnknownStochasticDefender2):
 
     name = "fabulous"
-    pattern = re.compile(r"^" + name + r"\d+(-\d+(\.\d+)?)$")
+    pattern = re.compile(r"^" + name + r"\d+(-\d+(\.\d+)?){1}$")
 
     @classmethod
     def parse(cls, player_type, game, id):
@@ -22,6 +22,8 @@ class FABULOUS(base_defenders.UnknownStochasticDefender2):
         self.avg_loss = 0
         self.exp_adv_loss = None
         self.power = power
+        # self.n_rep = n_rep
+        # self.repetition = n_rep
 
     def finalize_init(self):
         super().finalize_init()
@@ -38,6 +40,11 @@ class FABULOUS(base_defenders.UnknownStochasticDefender2):
 
     def compute_strategy(self):
         if self.tau() > 1:
+            # self.repetition -= 1
+            # if self.repetition:
+            #     return self.last_strategy
+            # else:
+            #     self.repetition = self.n_rep
             p = 0.5 / (self.tau() ** self.power)
             b = (self.norm_const *
                  sqrt(-log(p) / (self.tau())))

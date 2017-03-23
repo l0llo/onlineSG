@@ -504,7 +504,7 @@ class FB2BW2W(B2BW2W):
             if b is None:
                 norm_belief[i] = 0
             else:
-                norm_belief[i] = exp(b * self.tau()) 
+                norm_belief[i] = exp(b * self.tau())
 
         norm_belief = np.array(norm_belief)
         norm = np.linalg.norm(norm_belief, ord=1)

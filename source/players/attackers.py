@@ -228,7 +228,7 @@ class SUQR(player.Attacker):
         return spp.parse1(cls, player_type, game, id, spp.parse_float)
 
     def __init__(self, g, pl_id, L, w1, w2, c):
-        super().__init__(g, pl_id, 1)
+        super().__init__(g, pl_id, pl_id)
         self.L = L
         self.w1 = -w1
         self.w2 = w2
@@ -236,9 +236,33 @@ class SUQR(player.Attacker):
 
     def compute_strategy(self):
         x = self.game.strategy_history[-1][0]
+        return self.suqr_distr(x)
+
+    def suqr_distr(self, x):
         targets = list(range(len(self.game.values)))
         R = [v[self.id] for v in self.game.values]
-        q = np.array([exp(self.L * (self.w1 * x[t] + self.w2 * R[t] + self.c))
+        q = np.array([exp(self.L * (self.w1 * x[t] +
+                                    self.w2 * R[t] + 
+                                    self.c))
                       for t in targets])
         q /= np.linalg.norm(q, ord=1)
         return list(q)
+
+    def get_best_responder(self):
+        br = base_defenders.SUQRDefender(self.game, 0, 1,
+                                         mock_suqr=self)
+        br.finalize_init()
+        return br
+
+
+    def exp_loss(self, input_strategy):
+        strategy = {0: input_strategy[0]}
+        R = [v[self.id] for v in self.game.values]
+        att_strategy = self.suqr_distr(strategy[0])
+        strategy[1] = att_strategy
+        return super().exp_loss(strategy)
+
+    def opt_loss(self):
+        br = self.get_best_responder()
+        return self.exp_loss({0: br.compute_strategy(),
+                              1: None})
