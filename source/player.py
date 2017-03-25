@@ -137,6 +137,21 @@ class Attacker(Player):
     the best_respond method which is used by many types of adversaries.
     """
 
+    def __init__(self, game, id, resources=1):
+        """"
+        Attributes
+
+        feedbacks   list of targets dict with feedbacks for each turn
+                    (if any)
+        """
+        super().__init__(game, id, resources)
+        self.br = None
+
+    def finalize_init(self):
+        super().finalize_init()
+        if self.br is not None:
+            self.br.finalize_init()
+
     def best_respond(self, strategies):
         """
         Compute the pure strategy that best respond to a given dict of
@@ -218,6 +233,20 @@ class Attacker(Player):
                           for j, s_a in enumerate(strategy_vec[1])
                           if j != i])
                      for i, s_d in enumerate(strategy_vec[0])])
+
+    def get_best_responder(self):
+        if self.br is None:
+            br = self.init_br()
+            if self._finalized:
+                br.finalize_init()
+            self.br = br
+        # used in holmes context
+        if self.br.game is not self.game:
+            self.br.game = self.game
+        return self.br
+
+    def init_br(self):
+        return Defender(self.game, 0, 1)
 
 
 def sample(distribution, items_number):

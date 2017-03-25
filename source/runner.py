@@ -15,11 +15,14 @@ import numpy as np
 import shutil
 from source.util import exp_regret, actual_regret, exp_loss, log_progress
 import concurrent.futures
+import logging
 
 
 AbortedExperiment = namedtuple('AbortedExperiment', ['error', 'info', 'seed'])
 AbortedConfiguration = namedtuple('AbortedConfiguration', ['error', 'info', 'row'])
 AbortedBatch = namedtuple('AbortedBatch', ['error', 'file'])
+
+logger = logging.getLogger(__name__)
 
 
 class Runner:

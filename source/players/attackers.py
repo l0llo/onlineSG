@@ -18,10 +18,6 @@ class StackelbergAttacker(player.Attacker):
     name = "sta"
     pattern = re.compile(r"^" + name + "\d*$")
 
-    def __init__(self, g, id, resources=1):
-        super().__init__(g, id, resources)
-        self.br = None
-
     def compute_strategy(self):
         return self.best_respond(self.game.strategy_history[-1])
 
@@ -37,46 +33,9 @@ class StackelbergAttacker(player.Attacker):
         sta_def.br_stackelberg()
         return -sta_def.maxmin
 
-    def get_best_responder(self):
-        if self.br is None:
-            br = base_defenders.StackelbergDefender(self.game, 0)
-            br.finalize_init()
-            self.br = br
-        return self.br
-
-
-class StackelbergAttackerR(player.Attacker):
-    """
-    The StackelbergR attacker observes the Defender strategy and plays a pure
-    strategy that best responds to it. In order to break ties, it randomizes
-    over the indifferent strategies.
-    """
-
-    name = "stackelbergR"
-    pattern = re.compile(r"^" + name + "\d*$")
-
-    def compute_strategy(self):
-        return self.best_respond_mixed(self.game.strategy_history[-1])
-
-
-class DumbAttacker(player.Attacker):
-    """
-    The Dumb attacker, given an initially choosen action, always plays it
-    """
-
-    name = "dumb"
-    pattern = re.compile(r"^" + name + "\d*$")
-
-    def __init__(self, game, id, resources=1, choice=None):
-        super().__init__(game, id, resources)
-        if not choice or len(choice) != self.resources:
-            shuffled_targets = list(range(len(self.game.values)))
-            np.random.shuffle(shuffled_targets)
-            self.choice = shuffled_targets[:resources]
-
-    def compute_strategy(self):
-        targets = range(len(self.game.values))
-        return [int(t in self.choice) for t in targets]
+    def init_br(self):
+        br = base_defenders.StackelbergDefender(self.game, 0)
+        return br
 
 
 class FictitiousPlayerAttacker(player.Attacker):
@@ -155,16 +114,13 @@ class StochasticAttacker(player.Attacker):
         return super().exp_loss(strategy)
 
     def opt_loss(self):
-        sto_def = base_defenders.KnownStochasticDefender(self.game, 0, 1, *
-                                                         self.distribution)
-        s = {0: sto_def.compute_strategy(),
+        s = {0: self.get_best_responder().compute_strategy(),
              1: self.compute_strategy()}
         return self.exp_loss(s)
 
-    def get_best_responder(self):
+    def init_br(self):
         br = base_defenders.KnownStochasticDefender(self.game, 0, 1,
                                                     *self.distribution)
-        br.finalize_init()
         return br
 
     def __str__(self):
@@ -181,9 +137,6 @@ class UnknownStochasticAttacker(player.Attacker):
     name = "unk_stochastic_attacker"
     pattern = re.compile(r"^" + name + r"\d$")
 
-    def __init__(self, game, id, resources=1):
-        super().__init__(game, id, resources)
-
     def compute_strategy(self):
         if self.tau() == 0:
             return self.uniform_strategy(len(self.game.values))
@@ -195,10 +148,9 @@ class UnknownStochasticAttacker(player.Attacker):
             norm = sum([weights[t] for t in targets])
             return [weights[t] / norm for t in targets]
 
-    def get_best_responder(self):
+    def init_br(self):
         br = base_defenders.UnknownStochasticDefender2(self.game, 0,
                                                        mock_sto=self)
-        br.finalize_init()
         return br
 
     def exp_loss(self, input_strategy):
@@ -233,12 +185,6 @@ class SUQR(player.Attacker):
         self.w1 = -w1
         self.w2 = w2
         self.c = c
-        self.br = None
-
-    def finalize_init(self):
-        super().finalize_init()
-        if self.br is not None:
-            self.br.finalize_init()
 
     def compute_strategy(self):
         x = self.game.strategy_history[-1][0]
@@ -254,14 +200,10 @@ class SUQR(player.Attacker):
         q /= np.linalg.norm(q, ord=1)
         return list(q)
 
-    def get_best_responder(self):
-        if self.br is None:
-            br = base_defenders.SUQRDefender(self.game, 0, 1,
-                                             mock_suqr=self)
-            if self._finalized:
-                br.finalize_init()
-            self.br = br
-        return self.br
+    def init_br(self):
+        br = base_defenders.SUQRDefender(self.game, 0, 1,
+                                         mock_suqr=self)
+        return br
 
     def exp_loss(self, input_strategy):
         strategy = {0: input_strategy[0]}
