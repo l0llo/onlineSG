@@ -451,7 +451,7 @@ def gen_tar_with_len(length):
 
     len_s = 0
     while len_s != length:
-        T = 15
+        T = length + 10
         time_horizon = 10
         targets = [round(x, 3) for x in gen_norm_targets(T)]
         values = tuple((v, v) for v in targets)
