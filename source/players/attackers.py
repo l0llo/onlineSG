@@ -182,19 +182,19 @@ class SUQR(player.Attacker):
     def __init__(self, g, pl_id, resources=1, L=None, w1=None, w2=None, c=None):
         super().__init__(g, pl_id, resources)
         if L is None:
-            self.L = np.random.uniform(0.76, 1)
+            self.L = round(np.random.uniform(0.76, 1), 3)
         else:
             self.L = L
         if w1 is None:
-            self.w1 = np.random.uniform(-5, -15)
+            self.w1 = round(np.random.uniform(-5, -15), 3)
         else:
             self.w1 = -w1
         if w2 is None:
-            self.w2 = np.random.uniform(0, 1)
+            self.w2 = round(np.random.uniform(0, 1), 3)
         else:
             self.w2 = w2
         if c is None:
-            self.c = np.random.uniform(0, 1)
+            self.c = round(np.random.uniform(0, 1), 3)
         else:
             self.c = c
 

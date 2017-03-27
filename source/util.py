@@ -49,8 +49,10 @@ def print_dist(distribution):
 
 
 def gen_distr(n):
-    d = list(np.random.dirichlet([1 for i in range(n)]))
-    return d
+    d = (np.random.dirichlet([1 for i in range(n)]))
+    d = np.array([round(x, 3) for x in d])
+    d /= np.linalg.norm(d, ord=1)
+    return list(d)
 
 
 def gen_name(distribution):
