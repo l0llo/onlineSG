@@ -9,6 +9,8 @@ import re
 import functools
 import time
 import logging
+import source.belief
+from copy import copy
 
 logger = logging.getLogger(__name__)
 
@@ -103,14 +105,14 @@ class HOLMES(base_defenders.StackelbergDefender):
         self.t_strategies = None
         self.tree = None
         self.exploration = exploration
-        self.count = 0
 
     def finalize_init(self):
         super().finalize_init()
         self.profiles = self.game.get_profiles_copies()
         for p in self.profiles:
             p.finalize_init()
-        self.belief = {k: 1 / (len(self.profiles)) for k in self.profiles}
+        #self.belief = {k: 1 / (len(self.profiles)) for k in self.profiles}
+        self.belief = source.belief.FrequentistBelief(self.profiles)
         self.arms = {k: k.get_best_responder() for k in self.profiles}
 
     def get_t_strategies(self):  # hardcoded for stackelberg!!!
@@ -144,22 +146,22 @@ class HOLMES(base_defenders.StackelbergDefender):
                 self.t_strategies = t_strategies
             if len([k for k in self.profiles
                     if ((k.__class__.name == attackers.StackelbergAttacker.name) and
-                        self.belief[k] > 0)]):
+                        self.belief.pr[k] > 0)]):
                 return self.t_strategies
         return []
 
-    def update_belief(self, o=None):
-        """
-        returns an updated belief, given an observation.
-        If the observation is None, it uses the last game history
-        """
-        if o is None:
-            o = self.game.history[-1][1][0]  # suppose 1 adversary, 1 resource
-        update = {k: k.last_strategy[o] * self.belief[k]
-                  for k in self.profiles}
-        eta = 1 / sum(update.values())
-        update = {k: update[k] * eta for k in update}  # normalization
-        return update
+    # def update_belief(self, o=None):
+    #     """
+    #     returns an updated belief, given an observation.
+    #     If the observation is None, it uses the last game history
+    #     """
+    #     if o is None:
+    #         o = self.game.history[-1][1][0]  # suppose 1 adversary, 1 resource
+    #     update = {k: k.last_strategy[o] * self.belief[k]
+    #               for k in self.profiles}
+    #     eta = 1 / sum(update.values())
+    #     update = {k: update[k] * eta for k in update}  # normalization
+    #     return update
 
     def explore_state(self, state_node, depth, strategies=None):
         """
@@ -181,7 +183,6 @@ class HOLMES(base_defenders.StackelbergDefender):
     def explore_strategy(self, strategy, state, s, depth):
         #logger.info("exploring " + str(strategy) + " " + str(depth))
         #start_time = time.time()
-        self.count += 1
         targets = list(range(len(self.game.values)))
         s.exp_regret = 0
         depth -= 1
@@ -199,7 +200,7 @@ class HOLMES(base_defenders.StackelbergDefender):
                         k.game = g
                         a[k] = k.get_best_responder()
                         k.play_strategy()
-                    update = {k: k.last_strategy[t] * state.b[k]
+                    update = {k: k.last_strategy[t] * state.b.pr[k]
                               for k in self.profiles}
                     g.history.append({0: [x],
                                       1: [t]})
@@ -211,17 +212,18 @@ class HOLMES(base_defenders.StackelbergDefender):
                     p_t = sum(update.values())
                     if p_t == 0:    # Temporary solution, better to mark it as
                                     # UNREACHABLE state
-                        b = {k: 0 for k in update}
-                        logger.info(str(s) + " " + x + " " + t + " unreachable")
+                        b = None
+                        logger.info(str(s) + " " + str(x) + " " + str(t) + " unreachable")
                     else:
-                        b = {k: update[k] / p_t for k in update}
+                        b = state.b.get_copy()
+                        b.update(g.history[-1][1][0])
                     r = state.r + sum(g.get_last_turn_payoffs(0))
                     p = state.p * p_t * p_x
                     new_state = State(b, r, p, g, a)
                     s.branches[(x, t)] = State_Node(new_state, dict())
                 if s.branches[(x, t)].state.p != 0:
                     if depth == 0:
-                        exp_loss = sum([s.branches[(x, t)].state.b[k] *
+                        exp_loss = sum([s.branches[(x, t)].state.b.pr[k] *
                                         k.opt_loss()
                                         for k in self.profiles])
                         regret = (-(s.branches[(x, t)].state.r) -
@@ -235,10 +237,13 @@ class HOLMES(base_defenders.StackelbergDefender):
                                                            depth)
                         s.exp_regret += regret  # already weighted with p
 
-
     def get_br_strategies(self, arms):
-        return [tuple(arms[k].play_strategy()) for k in self.profiles
-                if k.__class__.name != attackers.StackelbergAttacker.name]
+        brs = []
+        for p in self.profiles:
+            if (p.__class__.name != attackers.StackelbergAttacker.name or
+                not self.exploration):
+                brs.append(tuple(arms[p].play_strategy()))
+        return brs
 
     def compute_strategy(self):
         state = State(b=self.belief,
@@ -260,7 +265,8 @@ class HOLMES(base_defenders.StackelbergDefender):
         for p in self.profiles:
             p.game = self.game
             p.play_strategy()
-        self.belief = self.update_belief()
+        #self.belief = self.update_belief()
+        self.belief.update(self.game.history[-1][1][0])
 
     def _json(self):
         d = super()._json()
