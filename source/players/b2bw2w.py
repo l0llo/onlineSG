@@ -136,7 +136,8 @@ class MFB2BW2W(FB2BW2W):
     def compute_strategy(self):
         if self.tau() == 0:
             return self.uniform_strategy(len(self.game.values))
-        chosen = max(self.profiles, key=lambda x: self.belief[x])
+        chosen = max([p for p in self.profiles if self.belief[p] is not None],
+                     key=lambda x: self.belief[x])
         self.sel_arm = self.arms[chosen]
         return self.sel_arm.play_strategy()
 
