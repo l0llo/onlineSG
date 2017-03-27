@@ -226,3 +226,6 @@ class SUQR(player.Attacker):
         return self.exp_loss({0: (self.get_best_responder().
                                   compute_strategy()),
                               1: None})
+
+    def __str__(self):
+        return self.__class__.name
