@@ -143,7 +143,7 @@ def plot_conf2(fun_str, comp, path, name=None):
         pickle.dump(fig, file)
     plt.close(fig)
 
-            
+
 def plot_conf(fun_str, comp, path, name=None, show=False):
     plt.close()
     cmap = plt.get_cmap('gnuplot')
@@ -442,3 +442,20 @@ def gen_profiles(targets, p_pair_lst):
         for i in range(n):
             profiles.append(c(mock_game, 1, 1))
     return profiles
+
+
+def gen_tar_with_len(length):
+    import source.game as game
+
+    len_s = 0
+    while len_s != length:
+        T = 15
+        time_horizon = 10
+        targets = [round(x, 3) for x in gen_norm_targets(T)]
+        values = tuple((v, v) for v in targets)
+        g = game.Game(values, time_horizon)
+        g.attackers = [1]
+        g.defenders = [0]
+        s = support(g)
+        len_s = len(s)
+    return s

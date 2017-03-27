@@ -173,18 +173,30 @@ class UnknownStochasticAttacker(player.Attacker):
 class SUQR(player.Attacker):
 
     name = "suqr"
-    pattern = re.compile(r"^" + name + r"\d+(\.\d+)?(-\d+(\.\d+)?){3}$")
+    pattern = re.compile(r"^" + name + r"(\d+(-\d+(\.\d+)?){4})?$")
 
     @classmethod
     def parse(cls, player_type, game, id):
         return spp.parse1(cls, player_type, game, id, spp.parse_float)
 
-    def __init__(self, g, pl_id, L, w1, w2, c):
-        super().__init__(g, pl_id, pl_id)
-        self.L = L
-        self.w1 = -w1
-        self.w2 = w2
-        self.c = c
+    def __init__(self, g, pl_id, resources=1, L=None, w1=None, w2=None, c=None):
+        super().__init__(g, pl_id, resources)
+        if L is None:
+            self.L = np.random.uniform(0.76, 1)
+        else:
+            self.L = L
+        if w1 is None:
+            self.w1 = np.random.uniform(-5, -15)
+        else:
+            self.w1 = -w1
+        if w2 is None:
+            self.w2 = np.random.uniform(0, 1)
+        else:
+            self.w2 = w2
+        if c is None:
+            self.c = np.random.uniform(0, 1)
+        else:
+            self.c = c
 
     def compute_strategy(self):
         x = self.game.strategy_history[-1][0]
