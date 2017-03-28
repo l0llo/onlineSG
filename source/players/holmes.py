@@ -25,12 +25,12 @@ class State:
         self.a = a
 
     def __str__(self):
-        return ('b: ' + str([v for k, v in self.b.items()]) +
+        return ('b: ' + str(self.b) +
                 ' r: ' + str(self.r) +
                 ' p: ' + str(self.p))
 
     def __repr__(self):
-        return ('b: ' + str([v for k, v in self.b.items()]) +
+        return ('b: ' + str(self.b) +
                 ' r: ' + str(self.r) +
                 ' p: ' + str(self.p))
 
@@ -213,7 +213,7 @@ class HOLMES(base_defenders.StackelbergDefender):
                     if p_t == 0:    # Temporary solution, better to mark it as
                                     # UNREACHABLE state
                         b = None
-                        logger.info(str(s) + " " + str(x) + " " + str(t) + " unreachable")
+                        #logger.info(str(s) + " " + str(x) + " " + str(t) + " unreachable")
                     else:
                         b = state.b.get_copy()
                         b.update(g.history[-1][1][0])
