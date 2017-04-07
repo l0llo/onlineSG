@@ -1,3 +1,6 @@
+import re
+
+
 class Environment:
 
     def __init__(self, game, agent_id):
@@ -39,3 +42,33 @@ class Environment:
                          for t in self.game.history[-1][self.agent_id]}
             feedbacks['total'] = sum(feedbacks.values())
             return feedbacks
+
+
+class RTEnvironment(Environment):
+
+    def __init__(self, game, agent_id):
+        super().__init__(game, agent_id)
+
+    def observe_strategy(self, strategy):
+        # Agent strategy is stored
+        self.game.strategy_history.append(dict())
+        self.game.strategy_history[-1][self.agent_id] = strategy
+
+        # Attackers possibly observe and compute strategies
+        cur_strategy = None
+        while cur_strategy is None:
+            print("insert a valid strategy")
+            cur_strategy = self.parse_strategy(input())
+
+        self.game.players[1].last_strategy = cur_strategy
+        self.game.strategy_history[-1][1] = cur_strategy
+        # Players extract a sample from their strategies
+        self.game.history.append(dict())
+        self.game.history[-1][1] = self.game.players[1].sample_strategy()
+
+    def parse_strategy(self, target_str):
+        T = len(self.game.values)
+        pattern = re.compile("^[0-" + str(T - 1) +"]$")
+        if pattern.match(target_str):
+            target = int(target_str)
+            return [int(i == target) for i in range(T)]
