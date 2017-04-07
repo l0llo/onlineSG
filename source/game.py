@@ -105,6 +105,7 @@ class Game:
             raise TuplesWrongLenghtError
         np.random.shuffle(profiles)
         self.profiles = profiles
+
         for i in self.players:
             self.players[i].finalize_init()
         # hardcoding for 1 resource

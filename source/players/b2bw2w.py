@@ -3,6 +3,7 @@ import source.standard_player_parsers as spp
 from math import log, exp
 import re
 import numpy as np
+import source.belief
 
 
 class B2BW2W(player.Defender):
@@ -66,6 +67,38 @@ class B2BW2W(player.Defender):
         d.pop("profiles", None)
         d.pop("learning", None)
         return d
+
+
+class BeliefMaximizer(player.Defender):
+
+    def __init__(self, game, id, resources):
+        super().__init__(game, id, resources)
+        self.profiles = None
+        self.belief = None
+        self.arms = None
+        self.sel_arm = None
+        self.learning = player.Learning.EXPERT
+
+    def finalize_init(self):
+        super().finalize_init()
+        self.profiles = self.game.get_profiles_copies()
+        for p in self.profiles:
+            p.finalize_init()
+        self.belief = source.belief.FrequentistBelief(self.profiles)
+        self.arms = {k: k.get_best_responder() for k in self.profiles}
+
+    def compute_strategy(self):
+        chosen = player.sample([self.belief.pr[p] for p in self.profiles], 1)[0]
+        self.sel_arm = self.arms[self.profiles[chosen]]
+        return self.sel_arm.play_strategy()
+
+    def learn(self):
+        """ make our imagined adversary make a move
+            pay attention to history-based ones!!!
+            (use self.tau() somehow?) """
+        for k in self.profiles:
+            k.play_strategy()
+        self.belief.update(self.game.history[-1][1][0])
 
 
 class MB2BW2W(B2BW2W):

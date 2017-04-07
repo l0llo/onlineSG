@@ -148,6 +148,8 @@ class BR_Expert(base_defenders.ExpertDefender):
 
     def finalize_init(self):
         profiles = self.game.get_profiles_copies()
+        for p in profiles:
+            p.finalize_init()
         self.arms = [p.get_best_responder() for p in profiles]
         super().finalize_init()
 
@@ -170,6 +172,8 @@ class BR_MAB(base_defenders.MABDefender):
 
     def finalize_init(self):
         profiles = self.game.get_profiles_copies()
+        for p in profiles:
+            p.finalize_init()
         self.arms = [p.get_best_responder() for p in profiles]
         super().finalize_init()
 

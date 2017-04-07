@@ -16,6 +16,7 @@ import shutil
 from source.util import exp_regret, actual_regret, exp_loss, log_progress
 import concurrent.futures
 import logging
+import time
 
 
 AbortedExperiment = namedtuple('AbortedExperiment', ['error', 'info', 'seed'])
@@ -157,6 +158,9 @@ class Configuration:
 
     def compute_stats(self):
 
+        self.stats['avg_run_time'] = sum([e.run_time
+                                          for e in self.experiments
+                                          if isinstance(e, Experiment)])
         self.stats['avg_total_rewards'] = sum([e.stats['total_rewards']
                                                for e in self.experiments
                                                if isinstance(e, Experiment)])
@@ -168,6 +172,7 @@ class Configuration:
         if exp_number:
             self.stats['avg_total_rewards'] /= exp_number
             self.stats['avg_exp_regret'] /= exp_number
+            self.stats['avg_run_time'] /= exp_number
 
     def run_an_experiment(self, seed=None):
         if not seed:
@@ -250,8 +255,11 @@ class Experiment:
         self.exp_loss = []
         self.actual_regret = []
         self.exp_regret = []
+        self.run_time = 0
 
     def run_interaction(self):
+        if not len(self.game.history) % 50:
+            print(len(self.game.history))
         strategy = self.agent.play_strategy()
         self.environment.observe_strategy(strategy)
         realization = self.agent.sample_strategy()
@@ -259,12 +267,24 @@ class Experiment:
         feedback = self.environment.feedback("expert")
         self.agent.receive_feedback(feedback)
 
-    def run(self):
+    def run(self, verbose=False):
+        global logger
+
+        start_time = time.time()
+        if verbose:
+            logger.setLevel(logging.DEBUG)
+        else:
+            logger.setLevel(logging.WARNING)
         if self.game.is_finished():
             raise errors.FinishedGameError(self.game)
+        i = 0
         while(not self.game.is_finished()):
+            i += 1
+            if not i % 100:
+                logger.info(str(i))
             self.run_interaction()
         self.compute_stats()
+        self.run_time = time.time() - start_time
 
     def save_results(self, folder):
         df = pd.DataFrame()
