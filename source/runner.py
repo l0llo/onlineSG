@@ -26,9 +26,10 @@ logger = logging.getLogger(__name__)
 
 class Runner:
 
-    def __init__(self, runnables=[]):
+    def __init__(self, runnables=[], name=""):
         # list of Runnables, can be Batches or other Runners
         self.runnables = runnables
+        self.name = name
 
     def run(self, workers=None, sub_args_dict={}):
         with concurrent.futures.ProcessPoolExecutor(workers) as executor:
