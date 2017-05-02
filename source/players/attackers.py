@@ -1,15 +1,76 @@
 import source.player as player
-import source.players.base_defenders as base_defenders
 import source.standard_player_parsers as spp
 import re
 import source.errors as errors
 import numpy as np
-from math import exp
+from math import exp, sqrt
 import source.util as util
-from source.errors import NotFinalizedError
+import scipy.optimize
+import logging
+
+logger = logging.getLogger(__name__)
 
 
-class StackelbergAttacker(player.Attacker):
+class StrategyAwareAttacker(player.Attacker):
+
+    def exp_loss(self, strategy_vec, **kwargs):
+        """
+        exp loss for a strategy aware attacker
+        """
+        if isinstance(strategy_vec, dict):
+            # logger.debug(str(strategy_vec) + " " + str(type(strategy_vec)))
+            # only for testing purposes
+            return super().exp_loss(strategy_vec, **kwargs)
+        else:
+            str_dict = {0: strategy_vec,
+                        1: self.compute_strategy(strategy=strategy_vec)}
+            return super().exp_loss(str_dict)
+
+    def opt_loss(self, **kwargs):
+        """
+        kwargs in this case are useful only for learner/unknown parameters
+        attackers
+
+        """
+        if not kwargs and self.last_ol is not None:
+            return self.last_ol
+        else:
+            d_strat = self.best_response(**kwargs)
+            kwargs['strategy'] = d_strat
+            a_strat = self.compute_strategy(**kwargs)
+            s = {0: d_strat,
+                 1: a_strat}
+            self.last_ol = self.exp_loss(s)
+            return self.last_ol
+
+
+class HistoryDependentAttacker(player.Attacker):
+
+    def opt_loss(self, history=None, **kwargs):
+        """
+        being history dependent, it should be recomputed every time
+        """
+        if not history:
+            d_strat = self.best_response(**kwargs)
+            a_strat = self.compute_strategy(**kwargs)
+            s = {0: d_strat,
+                 1: a_strat}
+            self.last_ol = self.exp_loss(s)
+            return self.last_ol
+        else:
+            d_strat = self.best_response(history=history, **kwargs)
+            a_strat = self.compute_strategy(history=history, **kwargs)
+            s = {0: d_strat,
+                 1: a_strat}
+            ol = self.exp_loss(s)
+            h1 = history[:-1] if history[:-1] else None
+            weight = len(h1) + 1 if h1 else 1
+            ol1 = self.opt_loss(history=h1) * weight
+            self.last_ol = ol + ol1 / (len(history) + 1)
+            return self.last_ol
+
+
+class StackelbergAttacker(StrategyAwareAttacker):
     """
     The Stackelberg attacker observes the Defender strategy and plays a pure
     strategy that best responds to it.
@@ -18,27 +79,60 @@ class StackelbergAttacker(player.Attacker):
     name = "sta"
     pattern = re.compile(r"^" + name + "\d*$")
 
-    def compute_strategy(self):
-        return self.best_respond(self.game.strategy_history[-1])
+    def compute_strategy(self, strategy=None, **kwargs):
+        if strategy is None:
+            return self.best_respond(self.game.strategy_history[-1])
+        else:
+            return self.best_respond(strategy)
 
-    def exp_loss(self, input_strategy):
-        strategy = {0: input_strategy[0]}
-        mock_attacker = player.Attacker(self.game, 1)
-        att_strategy = mock_attacker.best_respond(strategy)
-        strategy[1] = att_strategy
-        return super().exp_loss(strategy)
+    def best_response(self, **kwargs):
+        if not self.last_br:
+            # m = gurobipy.Model("SSG")
+            # targets = list(range(len(self.game.values)))
+            # strategy = []
+            # for t in targets:
+            #     strategy.append(m.addVar(vtype=gurobipy.GRB.CONTINUOUS,
+            #                              name="x" + str(t)))
+            # v = m.addVar(lb=-gurobipy.GRB.INFINITY,
+            #              vtype=gurobipy.GRB.CONTINUOUS, name="v")
+            # m.setObjective(v, gurobipy.GRB.MAXIMIZE)
+            # for t in targets:
+            #     terms = [-self.game.values[t][0] * strategy[i]
+            #              for i in targets if i != t]
+            #     m.addConstr(sum(terms) - v >= 0, "c" + str(t))
+            # m.addConstr(sum(strategy) == 1, "c" + str(len(targets)))
+            # m.params.outputflag = 0
+            # m.optimize()
+            # self.last_ol = -v.x
+            # self.last_br = [float(s.x) for s in strategy]
 
-    def opt_loss(self):
-        sta_def = base_defenders.StackelbergDefender(self.game, 0, 1)
-        sta_def.br_stackelberg()
-        return -sta_def.maxmin
+            A_ub = []
+            for t in self.M:
+                terms = [self.game.values[t][self.id] * int(i != t)
+                         for i in self.M]
+                terms += [1]
+                A_ub.append(terms)
+            b_ub = [0 for i in range(len(A_ub))]
+            A_eq = [[1 for i in self.M] + [0]]
+            b_eq = [1]
+            bounds = [(0, 1) for i in self.M] + [(None, None)]
+            scipy_sol = list(scipy.optimize.linprog([0 for i in self.M] + [-1],
+                                                    A_ub=np.array(A_ub),
+                                                    b_ub=np.array(b_ub),
+                                                    A_eq=np.array(A_eq),
+                                                    b_eq=np.array(b_eq),
+                                                    bounds=bounds,
+                                                    method='simplex').x)
 
-    def init_br(self):
-        br = base_defenders.StackelbergDefender(self.game, 0)
-        return br
+            self.last_br, self.last_ol = scipy_sol[:-1], -scipy_sol[-1]
+        return self.last_br
+
+    # def init_br(self):
+    #     br = base_defenders.StackelbergDefender(self.game, 0)
+    #     return br
 
 
-class FictitiousPlayerAttacker(player.Attacker):
+class FictitiousPlayerAttacker(HistoryDependentAttacker):
     """
     The fictitious player computes the empirical distribution of the
     adversary move and then best respond to it. When it starts it has a vector
@@ -47,32 +141,43 @@ class FictitiousPlayerAttacker(player.Attacker):
     and update the weights acconding to it.
     """
     name = "fictitious"
-    pattern = re.compile(r"^" + name + r"(\d+(-\d+))?$")
+    pattern = re.compile(r"^" + name + "\d*$")
 
-    def __init__(self, game, id, resources=1, initial_weight=10):
+    def __init__(self, game, id, resources=1, initial_weight=0):
         super().__init__(game, id, resources)
-        self.weights = None
         self.initial_weight = initial_weight
+        self.weights = [initial_weight for m in self.M]
 
-    def compute_strategy(self):
+    def compute_strategy(self, history=None, **kwargs):
         """
         Add 1 to the weight of each covered target in the defender profile
         at each round: then best respond to the computed strategy
         """
-        if self.game.history:
-            for d in self.game.defenders:
-                for t in self.game.history[-1][d]:
-                    self.weights[d][t] += 1
+
+        if history:
+            add_w = [0 for m in self.M]
+            for i, j in history:
+                add_w[i] += 1
+            weights = [add_w[m] + self.weights[m] for m in self.M]
+            norm = sum(weights)
+            weights = [w / norm for w in weights]
+            wdict = {0: weights}
         else:
-            targets = range(len(self.game.values))
-            self.weights = {d: [self.initial_weight for t in targets]
-                            for d in self.game.defenders}
-        return self.best_respond(self.weights)
+            norm = sum(self.weights)
+            if norm == 0:
+                return self.uniform_strategy(len(self.game.values))
+            weights = [w / norm for w in self.weights]
+            wdict = {0: self.weights}
+        return self.best_respond(wdict)
+
+    def learn(self):
+        t = self.game.history[-1][0][0]
+        self.weights[t] += 1
 
 
 class StochasticAttacker(player.Attacker):
     """
-    It attacks according to a fixed 
+    It attacks according to a fixed
     """
 
     name = "sto"
@@ -105,72 +210,103 @@ class StochasticAttacker(player.Attacker):
         else:
             self.distribution = list(distribution)
 
-    def compute_strategy(self):
+    def compute_strategy(self, **kwargs):
         return self.distribution
 
-    def exp_loss(self, input_strategy):
-        strategy = {0: input_strategy[0]}
-        strategy[1] = self.distribution
-        return super().exp_loss(strategy)
-
-    def opt_loss(self):
-        s = {0: self.get_best_responder().compute_strategy(),
-             1: self.compute_strategy()}
-        return self.exp_loss(s)
-
-    def init_br(self):
-        br = base_defenders.KnownStochasticDefender(self.game, 0, 1,
-                                                    *self.distribution)
-        return br
+    # def init_br(self):
+    #     br = base_defenders.KnownStochasticDefender(self.game, 0, 1,
+    #                                                 *self.distribution)
+    #     return br
 
     def __str__(self):
         return "-".join([super().__str__()] +
                         [str(d) for d in self.distribution])
 
 
-class UnknownStochasticAttacker(player.Attacker):
+class UnknownStochasticAttacker(HistoryDependentAttacker):
     """
     Not a real attacker to be instantiated: it is intended to be used by the
     defender as a model
     """
 
-    name = "unk_stochastic_attacker"
-    pattern = re.compile(r"^" + name + r"\d$")
+    name = "usto"
+    pattern = re.compile(r"^" + name + "\d*$")
 
-    def compute_strategy(self):
+    @classmethod
+    def parse(cls, player_type, game, id):
+        return spp.parse1(cls, player_type, game, id, spp.parse_float)
+
+    def __init__(self, game, id, resources=1):
+        super().__init__(game, id, resources)
+        epsilon = 0.01
+        self.weights = [epsilon for m in self.M]
+
+    def compute_strategy(self, history=None, **kwargs):
+        """
+        Add 1 to the weight of each covered target in the defender profile
+        at each round: then best respond to the computed strategy
+        """
+
         if self.tau() == 0:
             return self.uniform_strategy(len(self.game.values))
         else:
-            targets = list(range(len(self.game.values)))
-            weights = {t: 0 for t in targets}
-            for h in self.game.history:
-                weights[h[self.id][0]] += 1
-            norm = sum([weights[t] for t in targets])
-            return [weights[t] / norm for t in targets]
+            if history is not None:
+                add_w = [0 for m in self.M]
+                for i, j in history:
+                    add_w[j] += 1
+                weights = [add_w[m] + self.weights[m] for m in self.M]
+                norm = sum(weights)
+                weights = [w / norm for w in weights]
+            else:
+                norm = sum(self.weights)
+                weights = [w / norm for w in self.weights]
+            return weights
 
-    def init_br(self):
-        br = base_defenders.UnknownStochasticDefender2(self.game, 0,
-                                                       mock_sto=self)
-        return br
+    def learn(self):
+        t = self.game.history[-1][self.id][0]
+        self.weights[t] += 1
 
-    def exp_loss(self, input_strategy):
-        strategy = {0: input_strategy[0]}
-        if self.last_strategy is None:
-            self.play_strategy()
-        strategy[1] = self.last_strategy
-        return super().exp_loss(strategy)
+    # def init_br(self):
+    #     br = base_defenders.UnknownStochasticDefender2(self.game, 0,
+    #                                                    mock_sto=self)
+    #     return br
 
-    def opt_loss(self):
-        if self.last_strategy is None:
-            self.play_strategy()
-        sto_def = base_defenders.KnownStochasticDefender(self.game, 0, 1, *
-                                                         self.last_strategy)
-        s = {0: sto_def.compute_strategy(),
-             1: self.last_strategy}
-        return self.exp_loss(s)
+    def best_response(self, **kwargs):
+        """
+        best reponse to an unknown stochastic attacker using FPL. If
+        `rep` keyword is not set, it returns a pure strategy,otherwise it 
+        returns a mixed strategy obtained by averaging over `rep` samples of
+        computed strategies.
+        Due to the  randomization involved in the br computation, calling
+        more times this function in the same round could give different
+        results.
+        """
+
+        N = len(self.M)
+        norm_const = max([v[self.id] for v in self.game.values])
+        # if I am seeing a br in the "future" I have to compute the correct t
+        add_t = len(kwargs["history"]) if "history" in kwargs else 0
+        adj_t = self.tau() + add_t + 1
+
+        def noise():
+            return np.random.uniform(0, (norm_const * sqrt(N) / adj_t))
+        weights = [0 for i in self.M]
+        repetitions = kwargs["rep"] if "rep" in kwargs else 1
+        for i in range(repetitions):
+            m = min(self.M,
+                    key=lambda t:
+                    self.exp_loss(self.ps(t), **kwargs) + noise())
+            weights[m] += 1
+        norm = sum(weights)
+        weights = [w / norm for w in weights]
+        self.last_br = weights
+        return self.last_br
+
+    def opt_loss(self, **kwargs):
+        return player.Attacker.opt_loss(self, **kwargs)
 
 
-class SUQR(player.Attacker):
+class SUQR(StrategyAwareAttacker):
 
     name = "suqr"
     pattern = re.compile(r"^" + name + r"(\d+(-\d+(\.\d+)?){4})?$")
@@ -179,8 +315,9 @@ class SUQR(player.Attacker):
     def parse(cls, player_type, game, id):
         return spp.parse1(cls, player_type, game, id, spp.parse_float)
 
-    def __init__(self, g, pl_id, resources=1, L=None, w1=None, w2=None, c=None):
-        super().__init__(g, pl_id, resources)
+    def __init__(self, g, pl_id, use_memory=True, L=None, w1=None,
+                 w2=None, c=None):
+        super().__init__(g, pl_id, 1)
         if L is None:
             self.L = round(np.random.uniform(0.76, 1), 3)
         else:
@@ -197,12 +334,20 @@ class SUQR(player.Attacker):
             self.c = round(np.random.uniform(0, 1), 3)
         else:
             self.c = c
+        self._use_memory = use_memory
+        self.memory = dict()
 
-    def compute_strategy(self):
-        x = self.game.strategy_history[-1][0]
-        return self.suqr_distr(x)
+    def compute_strategy(self, strategy=None, **kwargs):
+        if strategy is None:
+            x = self.game.strategy_history[-1][0]
+            return self.suqr_distr(x)
+        else:
+            return self.suqr_distr(strategy)
 
     def suqr_distr(self, x):
+        if self._use_memory:
+            if tuple(x) in self.memory:
+                return self.memory[tuple(x)]
         targets = list(range(len(self.game.values)))
         R = [v[self.id] for v in self.game.values]
         q = np.array([exp(self.L * (self.w1 * x[t] +
@@ -210,22 +355,29 @@ class SUQR(player.Attacker):
                                     self.c))
                       for t in targets])
         q /= np.linalg.norm(q, ord=1)
+        if self._use_memory:
+            self.memory[tuple(x)] = list(q)
         return list(q)
 
-    def init_br(self):
-        br = base_defenders.SUQRDefender(self.game, 0, 1,
-                                         mock_suqr=self)
-        return br
+    # def init_br(self):
+    #     br = base_defenders.SUQRDefender(self.game, 0, 1,
+    #                                      mock_suqr=self)
+    #     return br
 
-    def exp_loss(self, input_strategy):
-        strategy = {0: input_strategy[0]}
-        strategy[1] = self.suqr_distr(strategy[0])
-        return super().exp_loss(strategy)
-
-    def opt_loss(self):
-        return self.exp_loss({0: (self.get_best_responder().
-                                  compute_strategy()),
-                              1: None})
+    def best_response(self, **kwargs):
+        if self.last_br is None:
+            def fun(x):
+                return self.exp_loss(x)
+            targets = list(range((len(self.game.values))))
+            bnds = tuple([(0, 1) for t in targets])
+            cons = ({'type': 'eq', 'fun': lambda x: sum(x) - 1})
+            res = scipy.optimize.minimize(fun, util.gen_distr(len(targets)),
+                                          method='SLSQP', bounds=bnds,
+                                          constraints=cons, tol=0.000001)
+            self.last_br = list(res.x)
+        return self.last_br
 
     def __str__(self):
-        return self.__class__.name
+        return "-".join([super().__str__()] +
+                        [str(self.L), str(-self.w1), str(self.w2),
+                         str(self.c)])

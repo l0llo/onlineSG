@@ -101,3 +101,7 @@ class NotFinalizedError(OSG_Error):
 
     def __str__(self):
         return "Player " + repr(self.e) + " has't been finalized yet"
+
+
+class InvArgError(OSG_Error):
+    pass

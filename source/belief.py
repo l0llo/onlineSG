@@ -1,5 +1,5 @@
 import numpy as np
-from math import log, exp
+from math import log, exp, sqrt
 from copy import copy
 
 
@@ -38,30 +38,45 @@ class BayesianBelief:
 
 class FrequentistBelief:
 
-    def __init__(self, profiles):
+    def __init__(self, profiles, min_p=0.01):
         self.profiles = profiles
         self.loglk = {p: 0 for p in self.profiles}
         self.pr = {p: 1 / len(profiles) for p in self.profiles}
+        self.min_p = min_p
+        self.udict = {}
 
-    def update(self, o):
+    def update(self, o=None, add_time=0):
         """
-        returns an updated belief, given an observation.
-        If the observation is None, it uses the last game history
+        update the belief, given the attacker move *o*.
+        If the observation is None, it uses the last game
+        history
         """
+        import source.players.attackers as atk
+        t = self.profiles[0].tau() + add_time
+        eps = sqrt(log(t) / t)
+
+        def ll(q, x):
+            return log(max(q.last_strategy[x] - eps, self.min_p))
+
         update = dict()
         for p in self.profiles:
             if p.last_strategy[o] == 0 or self.loglk[p] is None:
                 update[p] = None
             else:
-                update[p] = ((self.loglk[p] * (p.tau() - 1) +
-                              log(p.last_strategy[o])) / p.tau())
+                if isinstance(p, atk.UnknownStochasticAttacker):
+                    self.udict[o] = self.udict[o] + 1 if o in self.udict else 1
+                    update[p] = sum([self.udict[i] * ll(p, i)
+                                     for i in self.udict]) / t
+                else:
+                    new_l = log(p.last_strategy[o])
+                    update[p] = ((self.loglk[p] * (t - 1) + new_l) / t)
         self.loglk = update
 
         for p, x in self.loglk.items():
             if x is None:
                 self.pr[p] = 0
             else:
-                self.pr[p] = exp(x * p.tau())
+                self.pr[p] = exp(x * (p.tau() + add_time))
 
         norm = sum([self.pr[p] for p in self.profiles])
         if round(norm, 100) == 0:

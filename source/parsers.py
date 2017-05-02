@@ -3,22 +3,20 @@ import source.player as player
 import inspect
 import pandas as pd
 import source.players.attackers as attackers
-import source.players.base_defenders as base_defenders
-import source.players.defenders as defenders
-import source.players.holmes as holmes
-import source.players.sad as sad
-import source.players.b2bw2w as b2bw2w
+import source.players.belief_max as bm
+import source.players.fr as fr
+import source.players.baseline as bl
 from source.errors import *
 
 
 class Parser:
     """
     Attributes
-    df                  the pandas dataframe corresponding to the
-                        config file gives as input
+    df the pandas dataframe corresponding to the config file gives as input
     targets_headers     as below
     attackers_headers   as below
     defenders_headers   the relative dataframe header
+    
     """
 
     def __init__(self, csv_file_path):
@@ -82,11 +80,9 @@ def parse_player(player_type, game, id):
     """
     players_classes = sum([get_classes(player),
                            get_classes(attackers),
-                           get_classes(base_defenders),
-                           get_classes(defenders),
-                           get_classes(sad),
-                           get_classes(holmes),
-                           get_classes(b2bw2w)], [])
+                           get_classes(bl),
+                           get_classes(bm),
+                           get_classes(fr)], [])
     for c in players_classes:
         parsed = c.parse(player_type, game, id)
         if parsed:

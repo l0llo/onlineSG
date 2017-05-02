@@ -7,13 +7,41 @@ from copy import copy
 import pickle
 import json
 from json import JSONEncoder
-from source.util import difficulty
 from copy import deepcopy
 import numpy as np
 
 
 class Game:
     """
+    Base class for a generic Security Game (general sum) with a group of
+    `attackers` and a group of `defenders`. It stores the history of plays
+    and strategies of each players and the targets value matrix. Each security
+    game application should have only one Game instance, but singleton design
+    pattern has not been implemented in order to leave open the possibility
+    of having multiple game, e.g. mock games for exploration purposes.
+    
+    A Game object can be created in several ways:
+
+    * using its constructor, or using zero sum game one :meth:`zs_game`
+    * from a pickled object :meth:`load`
+    * parsing it from a configuration file (see :doc:`parsers`)
+
+    :var values: tuple with a tuple for each target
+                 with the values for each player
+    :var time_horizon: the time horizon of the game
+    :var players:   dict of players indexed by integers
+    :var attackers: list of attackers indexes
+    :var defenders: list of defenders indexes
+    :var history:   list of dict for each turn: each one is made by the
+                    moves of the players (each move is a tuple of choosen
+                    targets indexes)
+    :var strategy_history:  list of dict for each turn: each one is made by
+                            the strategies of the players
+    :var profiles:  list of attackers: the true attacker is of the same of one
+        of them however it is NOT the same object. Profiles are "ghost" 
+        players, in the sense that they evolve through time (some learn during
+        the game) in order to mantain a correct model of the profile they
+        represent. 
     """
 
     value_patterns = [re.compile(r"^\d+$"),
@@ -21,6 +49,9 @@ class Game:
 
     @classmethod
     def parse_value(cls, values, players_number):
+        """
+        returns a value tuple in order to instance a Game object
+        """
         if reduce(lambda x, y: x and y, [isinstance(v, numbers.Number)
                                          for v in values]):
             return [[float(v) for p in range(players_number)]
@@ -42,24 +73,15 @@ class Game:
 
     def __init__(self, payoffs, time_horizon):
 
-        #: tuple with a tuple for each target with the values for each
-        #: player
         self.values = payoffs
-        #:
         self.time_horizon = time_horizon
-        #: dict of players indexed by integers
         self.players = dict()
-        #: list of attackers' indexes
         self.attackers = []
-        #: list of defenders' indexes
         self.defenders = []
-        #: list of dict for each turn: each one is made by the
-        #: moves of the players (each move is a tuple of choosen targets
-        #: indexes)
-        self.profiles = []
         self.history = []
-        # self.difficulties = []
         self.strategy_history = []
+        self.profiles = []
+
 
     # def __str__(self):
     #     return ''.join(["<", self.__class__.__name__,
@@ -85,16 +107,6 @@ class Game:
         the game
         """
 
-        #players = defenders + attackers
-        # old_players_length = len(self.players)
-        # for (i, p) in enumerate(players):
-        #     self.players[i + old_players_length] = p
-        # end_defenders = old_players_length + len(defenders)
-        # end_attackers = end_defenders + len(attackers)
-        # self.defenders.extend(list(range(old_players_length,
-        #                                  end_defenders)))
-        # self.attackers.extend(list(range(end_defenders,
-        #                                  end_attackers)))
         for p in attackers:
             self.players[p.id] = p
             self.attackers.append(p.id)
@@ -108,6 +120,10 @@ class Game:
 
         for i in self.players:
             self.players[i].finalize_init()
+
+        for p in self.profiles:
+            p.finalize_init()
+
         # hardcoding for 1 resource
         # attacker = self.players[self.attackers[0]]
         # self.difficulties = [difficulty(attacker, p)
@@ -136,26 +152,44 @@ class Game:
                     for (i, v) in enumerate(self.values)]
         else:
             raise Exception(
-                "Cannot compute utility for an index than does not exist"
+                "Cannot compute utility for an index than does not exist: " +
+                str(player_index) + " " + str(self.defenders)
             )
 
     def get_last_turn_payoffs(self, player_index):
+        """
+        returns the payoff list of the last turn given a player index
+        """
         return self.get_player_payoffs(player_index, self.history[-1])
 
     def get_profiles_copies(self):
+        """
+        `DEPRECATED: use directly the actual profiles, without modifying them`
+
+        returns a deep copy of the profiles 
+        """
         profiles = deepcopy(self.profiles)
         for p in profiles:
             p.game = self  # copies need the real game!
         return profiles
 
     def is_finished(self):
+        """
+        True if the game has reached the time horizon
+        """
         return len(self.history) >= self.time_horizon
 
     def dump(self, game_file):
+        """
+        saves a pickle of the game object in the **game_file** file
+        """
         with open(game_file, mode='w+b') as file:
             pickle.dump(self, file)
 
     def dumpjson(self, jsonfile):
+        """
+        saves a json of the game object in the **jsonfile** file
+        """
         with open(jsonfile, mode='w+') as f:
             f.write(json.dumps(self, cls=AutoJSONEncoder,
                                sort_keys=True, indent=4))
@@ -165,11 +199,18 @@ class Game:
 
 
 def zs_game(values, time_horizon):
+    """
+    returns a zero sum game given the target values in **values**
+    """
     payoffs = tuple((v, v) for v in values)
     return Game(payoffs, time_horizon)
 
 
 def load(game_file):
+    """
+    loads a Game object from a picke in a **game_file** file.
+    Game instances can be pickled using :meth:'Game.dump'
+    """
     with open(game_file, mode='r+b') as file:
         game = pickle.load(file)
     return game
@@ -182,24 +223,12 @@ class AutoJSONEncoder(JSONEncoder):
         except AttributeError:
             return JSONEncoder.default(self, obj)
 
-# def play_turn(self):
-
-#     # Defenders compute strategies (it includes also computing rewards)
-#     self.strategy_history.append(dict())
-#     for d in self.defenders:
-#         self.strategy_history[-1][d] = self.players[d].play_strategy()
-
-#     # Attackers possibly observe and compute strategies
-#     for a in self.attackers:
-#         self.strategy_history[-1][a] = self.players[a].play_strategy()
-
-#     # Players extract a sample from their strategies
-#     self.history.append(dict())
-#     for p in self.players:
-#         self.history[-1][p] = self.players[p].sample_strategy()
-
 
 def copy_game(g):
+    """
+    returns a shallow copy of thte game but with a copy of the history and
+    strategy_history variables s.t. the original ones would not be modified.
+    """
     game_copy = copy(g)
     game_copy.history = copy(g.history)
     game_copy.strategy_history = copy(g.strategy_history)
@@ -219,6 +248,9 @@ def main():
 
 
 def example_game1():
+    """
+    returns a toy example with 2 targets
+    """
     example_targets = [1, 2]
     example_values = tuple((v, v) for v in example_targets)
     example_game = Game(example_values, 10)
@@ -226,6 +258,9 @@ def example_game1():
 
 
 def example_game2():
+    """
+    returns a toy example with 2 targets and 2 players
+    """
     g = example_game1()
     d = Player(g, 0, 1)
     a = Player(g, 1, 1)
