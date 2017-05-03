@@ -3,6 +3,7 @@ import os
 import matplotlib.pyplot as plt
 import matplotlib
 import pickle
+from math import sqrt
 
 """
 A collection of useful function
@@ -67,6 +68,19 @@ def plot_dicts(dlst, name="figure", ylabel="$R(U)_n$", path=".",
     if show:
         plt.show(fig)
     plt.close(fig)
+
+
+def avg_with_conf(lst, name=""):
+    avgs = sum(lst, np.zeros(len(lst[0]))) / len(lst)
+    variances = [np.array([(r - avgs[i]) ** 2 for i, r in enumerate(ls)])
+                 for ls in lst]
+    avg_var = sum(variances) / (len(variances) - 1)
+    z = 1.96
+    upper_bound = [a + z * sqrt(avg_var[i] / len(variances))
+                   for i, a in enumerate(avgs)]
+    lower_bound = [max(a - z * sqrt(avg_var[i] / len(variances)), 0)
+                   for i, a in enumerate(avgs)]
+    return {"avgs": avgs, "ub": upper_bound, "lb": lower_bound, "name": name}
 
 
 # GAME GENERATION
