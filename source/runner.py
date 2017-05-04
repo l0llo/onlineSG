@@ -270,8 +270,6 @@ class Experiment:
         self.run_time = 0
 
     def run_interaction(self):
-        if not self.agent.tau() % 50:
-            logger.info("interaction: " + str(self.agent.tau()))
         strategy = self.agent.play_strategy()
         self.environment.observe_strategy(strategy)
         realization = self.agent.sample_strategy()
@@ -295,7 +293,7 @@ class Experiment:
             else:
                 self.actual_regret.append(self.actual_regret[-1] + (al - ol))
 
-    def run(self, verbose=False):
+    def run(self, verbose=True):
         global logger
 
         start_time = time.time()
@@ -306,10 +304,13 @@ class Experiment:
         if self.game.is_finished():
             raise errors.FinishedGameError(self.game)
         i = 0
+        logger.info("T:" + str(len(self.game.values)) +
+                    " P:" + str(len(self.game.profiles)) +
+                    self.agent.__class__.name)
         while(not self.game.is_finished()):
             i += 1
-            if not i % 100:
-                logger.info("round: " + str(i))
+            # if not i % 100:
+            #     logger.info("round: " + str(i))
             self.run_interaction()
         #self.compute_stats()
         self.run_time = time.time() - start_time
