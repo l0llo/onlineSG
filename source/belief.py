@@ -38,12 +38,13 @@ class BayesianBelief:
 
 class FrequentistBelief:
 
-    def __init__(self, profiles, min_p=0.01):
+    def __init__(self, profiles, min_p=0.01, corr=False):
         self.profiles = profiles
         self.loglk = {p: 0 for p in self.profiles}
         self.pr = {p: 1 / len(profiles) for p in self.profiles}
         self.min_p = min_p
         self.udict = {}
+        self.corr = corr
 
     def update(self, o=None, add_time=0):
         """
@@ -63,7 +64,7 @@ class FrequentistBelief:
             if p.last_strategy[o] == 0 or self.loglk[p] is None:
                 update[p] = None
             else:
-                if isinstance(p, atk.UnknownStochasticAttacker):
+                if self.corr and isinstance(p, atk.UnknownStochasticAttacker):
                     self.udict[o] = self.udict[o] + 1 if o in self.udict else 1
                     update[p] = sum([self.udict[i] * ll(p, i)
                                      for i in self.udict]) / t
@@ -76,7 +77,7 @@ class FrequentistBelief:
             if x is None:
                 self.pr[p] = 0
             else:
-                self.pr[p] = exp(x * (p.tau() + add_time))
+                self.pr[p] = exp(x * t)
 
         norm = sum([self.pr[p] for p in self.profiles])
         if round(norm, 100) == 0:

@@ -233,3 +233,11 @@ def game_str(g, start=None, end=None, lenght=8):
 def end_sound():
     os.system("( speaker-test -t sine -f 1000 )& pid=$! ;" +
               " sleep 0.2s ; kill -9 $pid")
+
+
+def get_el(d, lst):
+    # get an element from a multidimensional dict
+    if not lst:
+        return d
+    else:
+        return get_el(d[lst[0]], lst[1:])
