@@ -18,7 +18,8 @@ players = {"sto1-0.1-0.7-0.2": atk.StochasticAttacker,
            "sta": atk.StackelbergAttacker,
            "usto": atk.UnknownStochasticAttacker,
            "suqr": atk.SUQR,
-           "suqr1-0.8-5-0.8-0.8": atk.SUQR,
+           "usuqr": atk.USUQR,
+           "suqr1-15-0.8": atk.SUQR,
            "fictitious": atk.FictitiousPlayerAttacker,
            "FB1": bm.FB,
            "FR1-1": fr.FR,
@@ -29,7 +30,8 @@ att_classes = [atk.StochasticAttacker,
                atk.StackelbergAttacker,
                atk.UnknownStochasticAttacker,
                atk.SUQR,
-               atk.FictitiousPlayerAttacker]
+               atk.FictitiousPlayerAttacker,
+               atk.USUQR]
 
 
 class ParsingTestCase(unittest.TestCase):

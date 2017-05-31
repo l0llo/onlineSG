@@ -18,26 +18,35 @@ class FBTestCase(dt.DefTestCase):
     """
 
     def setUp(self):
-        self.conf = True  # enable the configuration testing
+        self.conf = False  # enable the configuration testing
         self.n = 10
         time_horizon = 1000
         targets = util.gen_norm_targets(3)
         # choose which adversaries you want to test
-        self.adversaries = [dt.Ad.USTO,
-                            #dt.Ad.STA,
-                            #dt.Ad.SUQR,
-                            #dt.Ad.STO,
-                            #dt.Ad.FP
-                            ]
+        self.adversaries = [#"USTO",
+                            #"STA",
+                            #"SUQR",
+                            #"STO",
+                            #"FP",
+                            "usuqr"]
         self.game = game.zs_game(targets, time_horizon)
         self.defender = bm.FB(self.game, 0, 1)
         # choose the profiles
-        self.profiles = util.gen_profiles(targets,
-                                          [(atk.UnknownStochasticAttacker, 1),
-                                           (atk.StackelbergAttacker, 1),
-                                           (atk.SUQR, 1),
-                                           (atk.StochasticAttacker, 1),
-                                           (atk.FictitiousPlayerAttacker, 1)])
+        plist = ["usto",
+                 "sta",
+                 "suqr",
+                 "sto",
+                 "fp",
+                 "usuqr"]
+        self.pdict = util.gen_pdict(self.game, plist)
+        self.profiles = [self.pdict[p].prof for p in self.pdict]
+
+        # self.profiles = util.gen_profiles(targets,
+        #                                   [(atk.UnknownStochasticAttacker, 1),
+        #                                    (atk.StackelbergAttacker, 1),
+        #                                    (atk.SUQR, 1),
+        #                                    (atk.StochasticAttacker, 1),
+        #                                    (atk.FictitiousPlayerAttacker, 1)])
 
     @unittest.skip("")
     def test_regret(self):

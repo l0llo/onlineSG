@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import matplotlib
 import pickle
 from math import sqrt
+from collections import namedtuple
 
 """
 A collection of useful function
@@ -141,6 +142,22 @@ def gen_tar_with_len(length):
     return s
 
 
+def gen_pdict(g, prof_list):
+    import source.players.attackers as atk
+    Prof = namedtuple("Prof", ["prof", "adv"])
+
+    atk_dict = {
+                "usto": Prof(prof=atk.UnknownStochasticAttacker(g, 1),
+                             adv=atk.StochasticAttacker(g, 1)),
+                "sta": Prof(prof=atk.StackelbergAttacker(g, 1), adv=None),
+                "suqr": Prof(prof=atk.SUQR(g, 1), adv=None),
+                "sto": Prof(prof=atk.StochasticAttacker(g, 1), adv=None),
+                "fp": Prof(prof=atk.FictitiousPlayerAttacker(g, 1), adv=None),
+                "usuqr": Prof(prof=atk.USUQR(g, 1), adv=atk.SUQR(g, 1))
+                }
+    return {p: atk_dict[p] for p in prof_list}
+
+
 def gen_profiles(targets, p_pair_lst):
     """
     the p_pair_lst is formed by pairs of this type:
@@ -153,7 +170,7 @@ def gen_profiles(targets, p_pair_lst):
     profiles = []
     for c, n in p_pair_lst:
         for i in range(n):
-            profiles.append(c(mock_game, 1, 1))
+            profiles.append(c(mock_game, 1))
     return profiles
 
 # CONFIG FILE GENERATION

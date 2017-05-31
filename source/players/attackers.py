@@ -3,7 +3,7 @@ import source.standard_player_parsers as spp
 import re
 import source.errors as errors
 import numpy as np
-from math import exp, sqrt
+from math import exp, sqrt, log
 import source.util as util
 import scipy.optimize
 import logging
@@ -309,60 +309,52 @@ class UnknownStochasticAttacker(HistoryDependentAttacker):
 class SUQR(StrategyAwareAttacker):
 
     name = "suqr"
-    pattern = re.compile(r"^" + name + r"(\d+(-\d+(\.\d+)?){4})?$")
+    pattern = re.compile(r"^" + name + r"(\d+(-\d+(\.\d+)?){2})?$")
 
     @classmethod
     def parse(cls, player_type, game, id):
         return spp.parse1(cls, player_type, game, id, spp.parse_float)
 
-    def __init__(self, g, pl_id, use_memory=True, L=None, w1=None,
-                 w2=None, c=None):
+    def __init__(self, g, pl_id, use_memory=True, w1=None,
+                 w2=None):
         super().__init__(g, pl_id, 1)
-        if L is None:
-            self.L = round(np.random.uniform(0.76, 1), 3)
-        else:
-            self.L = L
+
         if w1 is None:
-            self.w1 = round(np.random.uniform(-5, -15), 3)
+            self.w1 = round(np.random.uniform(5, 15), 3)
         else:
-            self.w1 = -w1
+            self.w1 = w1
         if w2 is None:
             self.w2 = round(np.random.uniform(0, 1), 3)
         else:
             self.w2 = w2
-        if c is None:
-            self.c = round(np.random.uniform(0, 1), 3)
-        else:
-            self.c = c
         self._use_memory = use_memory
         self.memory = dict()
 
     def compute_strategy(self, strategy=None, **kwargs):
         if strategy is None:
             x = self.game.strategy_history[-1][0]
-            return self.suqr_distr(x)
+            return self.qr(x)
         else:
-            return self.suqr_distr(strategy)
+            return self.qr(strategy)
 
-    def suqr_distr(self, x):
+    def qr(self, x, a=None, b=None):
         if self._use_memory:
             if tuple(x) in self.memory:
                 return self.memory[tuple(x)]
         targets = list(range(len(self.game.values)))
         R = [v[self.id] for v in self.game.values]
-        q = np.array([exp(self.L * (self.w1 * x[t] +
-                                    self.w2 * R[t] +
-                                    self.c))
-                      for t in targets])
+        if a is not None and b is not None:
+            q = np.array([exp((-a * x[t] +
+                               b * R[t]))
+                          for t in targets])
+        else:
+            q = np.array([exp((-self.w1 * x[t] +
+                               self.w2 * R[t]))
+                          for t in targets])
         q /= np.linalg.norm(q, ord=1)
         if self._use_memory:
             self.memory[tuple(x)] = list(q)
         return list(q)
-
-    # def init_br(self):
-    #     br = base_defenders.SUQRDefender(self.game, 0, 1,
-    #                                      mock_suqr=self)
-    #     return br
 
     def best_response(self, **kwargs):
         if self.last_br is None:
@@ -379,5 +371,67 @@ class SUQR(StrategyAwareAttacker):
 
     def __str__(self):
         return "-".join([super().__str__()] +
-                        [str(self.L), str(-self.w1), str(self.w2),
-                         str(self.c)])
+                        [str(self.w1), str(self.w2)])
+
+
+class USUQR(SUQR):
+
+    name = "usuqr"
+    pattern = re.compile(r"^" + name + "\d*$")
+
+    @classmethod
+    def parse(cls, player_type, game, id):
+        return spp.parse1(cls, player_type, game, id, spp.parse_float)
+
+    def __init__(self, g, pl_id):
+        super().__init__(g, pl_id, 1)
+        self._use_memory = False
+
+    def compute_strategy(self, strategy=None, history=None, **kwargs):
+        if history is not None:
+            a, b = self.weights_MLE(history=history)
+            # there should be a strategy! handle the exception?
+            return self.qr(strategy, a=None, b=None)
+        else:
+            return super().compute_strategy(strategy=strategy)
+
+    def best_response(self, **kwargs):
+        self.last_br = None
+        return super().best_response(**kwargs)
+
+    def weights_MLE(self, history=None):
+        # !!!! In order to use with FR implement this part !!!!!
+
+        # if history is not None:
+        #     pass
+
+        bnds = tuple([(5, 15), (0, 1)])
+        na, nb = 0, 0
+
+        def fun(w):
+            return self.neg_loglk(w)
+        num_ite = 1
+        for ite in range(num_ite):
+            x0 = [np.random.uniform(5, 15), np.random.uniform(0, 1)]
+            res = scipy.optimize.minimize(fun=fun,
+                                          x0=x0,
+                                          method='L-BFGS-B',
+                                          bounds=bnds)
+            na = na + (res.x[0] - na) / (ite + 1)
+            nb = nb + (res.x[1] - nb) / (ite + 1)
+        return na, nb
+
+    def learn(self):
+        self.w1, self.w2 = self.weights_MLE()
+        self.last_br = None
+
+    def neg_loglk(self, w):
+        ll = 0
+        for i, strat in enumerate(self.game.strategy_history):
+            s = strat[0]
+            j = self.game.history[i][1][0]
+            ll -= log(self.qr(s, w[0], w[1])[j])
+        return ll
+
+    def __str__(self):
+        return self.__class__.name

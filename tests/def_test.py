@@ -4,15 +4,17 @@ import source.util as util
 import source.players.attackers as atk
 import source.runner as runner
 from source.players.baseline import MAB
+import concurrent.futures
 
 from copy import deepcopy
-import enum
+#import enum
 
 
 logger = logging.getLogger(__name__)
 
 
-Ad = enum.Enum('Ad', 'USTO STA SUQR STO FP')
+#Ad = enum.Enum('Ad', 'USTO STA SUQR STO FP USUQR')
+Ad = ["usto", "sta", "suqr", "sto", "fp", "usuqr"]
 
 
 class DefTestCase(unittest.TestCase):
@@ -50,19 +52,31 @@ class DefTestCase(unittest.TestCase):
     def runconf(self, adv):
         g = self.create_game(adv)
         c = runner.Configuration(g, print_results=False)
-        c.run(n=self.n)
+        with concurrent.futures.ProcessPoolExecutor(None) as executor:
+            futures = {}
+            c.run(futures, executor, n=self.n)
+        c.collect(futures)
         return c
 
     def create_game(self, adv):
         g = deepcopy(self.game)
         profiles = deepcopy(self.profiles)
+        # for p in profiles:
+        #     p.game = g
+        # if (adv.value - 1) == 0:  # enum start from 1
+        #     attacker = atk.StochasticAttacker(g, 1, 1)
+        # elif (adv.value - 1) == 0:
+        #     attacker = atk.USUQR(g, 1)
+        # else:
+        #     attacker = deepcopy(profiles[adv.value - 1])
+        #     attacker.game = g
         for p in profiles:
             p.game = g
-        if (adv.value - 1) != 0:  # enum start from 1
-            attacker = deepcopy(profiles[adv.value - 1])
-            attacker.game = g
+        if self.pdict[adv].adv is not None:
+            attacker = deepcopy(self.pdict[adv].adv)
         else:
-            attacker = atk.StochasticAttacker(g, 1, 1)
+            attacker = deepcopy(self.pdict[adv].prof)
+        attacker.game = g
         defender = deepcopy(self.defender)
         defender.game = g
         g.set_players([defender], [attacker], profiles)
