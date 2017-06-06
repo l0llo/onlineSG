@@ -8,19 +8,21 @@ import source.belief
 class FB(player.Defender):
 
     name = "FB"
-    pattern = re.compile(r"^" + name + r"\d$")
+    pattern = re.compile(r"^" + name + r"\d(-\d)?$")
 
     @classmethod
     def parse(cls, player_type, game, id):
         return spp.parse1(cls, player_type, game, id, spp.parse_integers)
 
-    def __init__(self, game, pl_id, resources):
+    def __init__(self, game, pl_id, resources=1, eps=False):
         super().__init__(game, pl_id, resources)
         self.belief = None
+        self.eps = bool(eps)
 
     def finalize_init(self):
         super().finalize_init()
-        self.belief = source.belief.FrequentistBelief(self.game.profiles)
+        self.belief = source.belief.FrequentistBelief(self.game.profiles,
+                                                      corr=self.eps)
 
     def compute_strategy(self):
         p = max(self.game.profiles, key=lambda x: self.belief.pr[x])
