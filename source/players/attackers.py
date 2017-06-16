@@ -386,6 +386,7 @@ class USUQR(SUQR):
     def __init__(self, g, pl_id):
         super().__init__(g, pl_id, 1)
         self._use_memory = False
+        self.mle = True
 
     def compute_strategy(self, strategy=None, history=None, **kwargs):
         if history is not None:
@@ -398,6 +399,21 @@ class USUQR(SUQR):
     def best_response(self, **kwargs):
         self.last_br = None
         return super().best_response(**kwargs)
+
+    def stochastic_gradient_descent(self):
+        v = [x[0] for x in self.game.values]
+        s = self.game.strategy_history[-1][0]
+        j = self.game.history[-1][1][0]
+        factors = [exp(-self.w1 * s[i] + self.w2 * v[i])
+                   for i in range(len(v))]
+        den = sum(factors)
+        num1 = sum([(s[i] - s[j]) * f for i, f in enumerate(factors)])
+        num2 = sum([(v[j] - v[i]) * f for i, f in enumerate(factors)])
+        gr1, gr2 = num1 / den, num2 / den
+        eta = 0.5
+        w1 = min(max(self.w1 + eta * gr1, 5), 15)
+        w2 = min(max(self.w2 + eta * gr2, 0), 1)
+        return w1, w2
 
     def weights_MLE(self, history=None):
         # !!!! In order to use with FR implement this part !!!!!
@@ -422,7 +438,10 @@ class USUQR(SUQR):
         return na, nb
 
     def learn(self):
-        self.w1, self.w2 = self.weights_MLE()
+        if self.mle:
+            self.w1, self.w2 = self.weights_MLE()
+        else:
+            self.w1, self.w2 = self.stochastic_gradient_descent()
         self.last_br = None
 
     def neg_loglk(self, w):

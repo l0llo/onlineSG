@@ -309,10 +309,8 @@ class Experiment:
                     self.agent.__class__.name)
         while(not self.game.is_finished()):
             i += 1
-            # if not i % 100:
-            #     logger.info("round: " + str(i))
+            logger.debug(str(i))
             self.run_interaction()
-        #self.compute_stats()
         self.run_time = time.time() - start_time
 
     def save_results(self, folder):

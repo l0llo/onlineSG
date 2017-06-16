@@ -16,7 +16,7 @@ class Expert(player.Defender):
     def parse(cls, player_type, game, id):
         return spp.parse1(cls, player_type, game, id, spp.parse_integers)
 
-    def __init__(self, game, id, resources):
+    def __init__(self, game, id, resources=1):
         super().__init__(game, id, resources)
         self.avg_rewards = None
         self.norm_const = 1
@@ -63,7 +63,6 @@ class Expert(player.Defender):
         d["arms"] = [str(e) for e in self.arms]
         d["algorithm"] = d["algorithm"].name
         d["class_name"] = self.__class__.__name__
-        d.pop("learning", None)
         return d
 
 
@@ -80,8 +79,8 @@ class MAB(player.Defender):
     def parse(cls, player_type, game, id):
         return spp.parse1(cls, player_type, game, id, spp.parse_integers)
 
-    def __init__(self, game, id, resources):
-        super().__init__(game, id, 1)
+    def __init__(self, game, id, resources=1):
+        super().__init__(game, id, resources)
         self.weight = None
         self.sel_p = None
         # self.prob = None
@@ -133,4 +132,115 @@ class MAB(player.Defender):
         d = super()._json()
         d.pop("weight", None)
         d.pop("prob", None)
+        return d
+
+
+class MAB_TS(player.Defender):
+    """
+    Learns in a Multi Armed Bandit way: only the selected expert (arm) can 
+    observe the feedback of the chosen action
+    """
+
+    name = "MABTS"
+    pattern = re.compile(r"^" + name + r"\d$")
+
+    @classmethod
+    def parse(cls, player_type, game, id):
+        return spp.parse1(cls, player_type, game, id, spp.parse_integers)
+
+    def __init__(self, game, id, resources=1):
+        super().__init__(game, id, resources)
+        self.alpha = None
+        self.beta = None
+        self.sel_p = None
+
+    def finalize_init(self):
+        super().finalize_init()
+        self.alpha = {p: 1 for p in self.A}
+        self.beta = {p: 1 for p in self.A}
+        self.norm_const = max([v[self.id] for v in self.game.values])
+
+    def compute_strategy(self):
+        self.sel_p = self.thompson_sampling()
+        return self.br_to(self.sel_p)
+
+    def learn(self):
+        p = self.sel_p
+        r = 1 + (sum(self.game.get_last_turn_payoffs(0)) / self.norm_const)
+        result = np.random.binomial(1, r)
+        if result:
+            self.alpha[p] += 1
+        else:
+            self.beta[p] += 1
+
+    def thompson_sampling(self):
+        r = {p: np.random.beta(self.alpha[p], self.beta[p]) for p in self.A}
+        max_p = max(self.A, key=lambda p: r[p])
+        return max_p
+
+    def _json(self):
+        d = super()._json()
+        d.pop("weight", None)
+        d.pop("prob", None)
+        return d
+
+
+class Expert_TS(player.Defender):
+    """
+    Learns in a Multi Armed Bandit way: only the selected expert (arm) can 
+    observe the feedback of the chosen action
+    """
+
+    name = "EXPTS"
+    pattern = re.compile(r"^" + name + r"\d$")
+
+    @classmethod
+    def parse(cls, player_type, game, id):
+        return spp.parse1(cls, player_type, game, id, spp.parse_integers)
+
+    def __init__(self, game, id, resources=1):
+        super().__init__(game, id, resources)
+        self.alpha = None
+        self.beta = None
+        self.last_p_strategies = None
+
+    def finalize_init(self):
+        super().finalize_init()
+        self.alpha = {p: 1 for p in self.A}
+        self.beta = {p: 1 for p in self.A}
+        self.norm_const = max([v[self.id] for v in self.game.values])
+        self.last_p_strategies = {p: None for p in self.A}
+
+    def compute_strategy(self):
+        self.sel_p = self.thompson_sampling()
+        for p in self.A:
+            self.last_p_strategies[p] = self.br_to(p)
+        return self.last_p_strategies[self.sel_p]
+
+    def learn(self):
+        for p in self.A:
+            str_dict = {0: self.last_p_strategies[p],
+                        1: self.ps(self.game.history[-1][1][0])}
+            cur_reward = -p.exp_loss(str_dict)
+            r = 1 + (cur_reward / self.norm_const)
+            result = np.random.binomial(1, r)
+            if result:
+                self.alpha[p] += 1
+            else:
+                self.beta[p] += 1
+
+    def thompson_sampling(self):
+        r = {p: np.random.beta(self.alpha[p], self.beta[p]) for p in self.A}
+        max_p = max(self.A, key=lambda p: r[p])
+        return max_p
+
+    def _json(self):
+        d = super()._json()
+        d.pop("weight", None)
+        d.pop("prob", None)
+        d.pop("game", None)
+        d.pop("avg_rewards", None)
+        d["arms"] = [str(e) for e in self.arms]
+        d["algorithm"] = d["algorithm"].name
+        d["class_name"] = self.__class__.__name__
         return d
