@@ -383,10 +383,10 @@ class USUQR(SUQR):
     def parse(cls, player_type, game, id):
         return spp.parse1(cls, player_type, game, id, spp.parse_float)
 
-    def __init__(self, g, pl_id):
+    def __init__(self, g, pl_id, mle=True):
         super().__init__(g, pl_id, 1)
         self._use_memory = False
-        self.mle = True
+        self.mle = bool(mle)
 
     def compute_strategy(self, strategy=None, history=None, **kwargs):
         if history is not None:
@@ -453,4 +453,7 @@ class USUQR(SUQR):
         return ll
 
     def __str__(self):
-        return self.__class__.name
+        if not self.mle:
+            return self.__class__.name + "0"
+        else:
+            return self.__class__.name
