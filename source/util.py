@@ -75,7 +75,7 @@ def avg_with_conf(lst, name=""):
     avgs = sum(lst, np.zeros(len(lst[0]))) / len(lst)
     variances = [np.array([(r - avgs[i]) ** 2 for i, r in enumerate(ls)])
                  for ls in lst]
-    avg_var = sum(variances) / (len(variances) - 1)
+    avg_var = sum(variances) / max((len(variances) - 1), 1)
     z = 1.96
     upper_bound = [a + z * sqrt(avg_var[i] / len(variances))
                    for i, a in enumerate(avgs)]
@@ -145,14 +145,17 @@ def gen_tar_with_len(length):
 def gen_pdict(g, prof_list):
     import source.players.attackers as atk
     Prof = namedtuple("Prof", ["prof", "adv"])
-
+    suqr_atk = atk.SUQR(g, 1)
+    sto_atk = atk.StochasticAttacker(g, 1)
     atk_dict = {
                 "usto": Prof(prof=atk.UnknownStochasticAttacker(g, 1),
                              adv=atk.StochasticAttacker(g, 1)),
-                "sta": Prof(prof=atk.StackelbergAttacker(g, 1), adv=None),
-                "suqr": Prof(prof=atk.SUQR(g, 1), adv=None),
-                "sto": Prof(prof=atk.StochasticAttacker(g, 1), adv=None),
-                "fp": Prof(prof=atk.FictitiousPlayerAttacker(g, 1), adv=None),
+                "sta": Prof(prof=atk.StackelbergAttacker(g, 1),
+                            adv=atk.StackelbergAttacker(g, 1)),
+                "suqr": Prof(prof=suqr_atk, adv=suqr_atk),
+                "sto": Prof(prof=sto_atk, adv=sto_atk),
+                "fp": Prof(prof=atk.FictitiousPlayerAttacker(g, 1),
+                           adv=atk.FictitiousPlayerAttacker(g, 1)),
                 "usuqr": Prof(prof=atk.USUQR(g, 1), adv=atk.SUQR(g, 1))
                 }
     return {p: atk_dict[p] for p in prof_list}
@@ -258,3 +261,18 @@ def get_el(d, lst):
         return d
     else:
         return get_el(d[lst[0]], lst[1:])
+
+
+def norm_min(v, m=0.01):
+    v = np.array(v)
+    n = np.linalg.norm(v, ord=1)
+    v = v / n
+    gr = []
+    n1 = 0
+    for i, x in enumerate(v):
+        if x >= m:
+            n1 += x
+            gr.append(i)
+    c = (1 - (len(v) - len(gr)) * m) / n1
+    v1 = [x * c if i in gr else m for i, x in enumerate(v)]
+    return v1

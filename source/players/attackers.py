@@ -230,16 +230,16 @@ class UnknownStochasticAttacker(HistoryDependentAttacker):
     """
 
     name = "usto"
-    pattern = re.compile(r"^" + name + "\d*$")
+    pattern = re.compile(r"^" + name + "\d*(-\d+(\.\d+)?)?$")
 
     @classmethod
     def parse(cls, player_type, game, id):
         return spp.parse1(cls, player_type, game, id, spp.parse_float)
 
-    def __init__(self, game, id, resources=1):
+    def __init__(self, game, id, resources=1, lb=0):
         super().__init__(game, id, resources)
-        epsilon = 0.01
-        self.weights = [epsilon for m in self.M]
+        self.weights = [0 for m in self.M]
+        self.lb = lb
 
     def compute_strategy(self, history=None, **kwargs):
         """
@@ -255,11 +255,12 @@ class UnknownStochasticAttacker(HistoryDependentAttacker):
                 for i, j in history:
                     add_w[j] += 1
                 weights = [add_w[m] + self.weights[m] for m in self.M]
-                norm = sum(weights)
-                weights = [w / norm for w in weights]
+                # norm = sum(weights)
+                # weights = [w / norm for w in weights]
+                weights = util.norm_min(weights, m=self.lb)
             else:
-                norm = sum(self.weights)
-                weights = [w / norm for w in self.weights]
+                # norm = sum(self.weights)
+                weights = util.norm_min(self.weights, m=self.lb)
             return weights
 
     def learn(self):
