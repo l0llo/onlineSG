@@ -3,7 +3,7 @@ import re
 from copy import deepcopy
 import enum
 from source.errors import AlreadyFinalizedError
-
+from math import log
 #: The possible type of learning of a learner player
 # Learning = enum.Enum('Learning', 'MAB EXPERT OTHER')
 
@@ -323,19 +323,33 @@ class Attacker(Player):
             self.last_ol = self.exp_loss(s)
             return self.last_ol
 
-    # def get_best_responder(self):
-    #     if self.br is None:
-    #         br = self.init_br()
-    #         if self._finalized:
-    #             br.finalize_init()
-    #         self.br = br
-    #     # used in holmes context
-    #     if self.br.game is not self.game:
-    #         self.br.game = self.game
-    #     return self.br
+    def loglk(self, old_loglk):
+        if old_loglk is None:
+            return None
+        o = self.game.history[-1][1][0]
+        lkl = self.last_strategy[o]
+        if lkl == 0:
+            return None
+        else:
+            new_l = log(lkl)
+            return ((old_loglk * max(self.tau() - 1, 0) + new_l) /
+                    max(self.tau(), 1))
 
-    # def init_br(self):
-    #     return Defender(self.game, 0, 1)
+    def hloglk(self, old_loglk, hdict,
+               history, ds_history):
+        if old_loglk is None:
+            return None
+        o = history[-1][1]
+        lkl = hdict["last_strategy"][o]
+        if lkl == 0:
+            return None
+        else:
+            new_l = log(lkl)
+            return ((old_loglk * max(self.tau() - 1, 0) + new_l) /
+                    max(self.tau(), 1))
+
+    def hlearn(self, H, ds_history, hdict):
+        return {}
 
 
 def sample(distribution, items_number):

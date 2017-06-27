@@ -241,7 +241,7 @@ class UnknownStochasticAttacker(HistoryDependentAttacker):
         self.weights = [0 for m in self.M]
         self.lb = lb
 
-    def compute_strategy(self, history=None, **kwargs):
+    def compute_strategy(self, hdict=None, **kwargs):
         """
         Add 1 to the weight of each covered target in the defender profile
         at each round: then best respond to the computed strategy
@@ -250,27 +250,23 @@ class UnknownStochasticAttacker(HistoryDependentAttacker):
         if self.tau() == 0:
             return self.uniform_strategy(len(self.game.values))
         else:
-            if history is not None:
-                add_w = [0 for m in self.M]
-                for i, j in history:
-                    add_w[j] += 1
-                weights = [add_w[m] + self.weights[m] for m in self.M]
-                # norm = sum(weights)
-                # weights = [w / norm for w in weights]
-                weights = util.norm_min(weights, m=self.lb)
+            if hdict is not None:
+                distr = util.norm_min(hdict["weights"], m=self.lb)
             else:
                 # norm = sum(self.weights)
-                weights = util.norm_min(self.weights, m=self.lb)
-            return weights
+                distr = util.norm_min(self.weights, m=self.lb)
+            return distr
 
     def learn(self):
         t = self.game.history[-1][self.id][0]
         self.weights[t] += 1
 
-    # def init_br(self):
-    #     br = base_defenders.UnknownStochasticDefender2(self.game, 0,
-    #                                                    mock_sto=self)
-    #     return br
+    def hlearn(self, H, ds_history, hdict):
+        add_w = [0 for m in self.M]
+        for i, j in H:
+            add_w[j] += 1
+        weights = [add_w[m] + self.weights[m] for m in self.M]
+        return {"weights": weights}
 
     def best_response(self, **kwargs):
         """
@@ -305,6 +301,18 @@ class UnknownStochasticAttacker(HistoryDependentAttacker):
 
     def opt_loss(self, **kwargs):
         return player.Attacker.opt_loss(self, **kwargs)
+
+    def loglk(self, old_loglk):
+        ll = sum([self.weights[m] * log(self.last_strategy[m])
+                  for m in self.M if self.last_strategy[m]])
+        return ll / self.tau()
+
+    def hloglk(self, old_loglk, hdict,
+               history, ds_history):
+        t = len(self.game.strategy_history) + len(ds_history)
+        ll = sum([hdict["weights"][m] * log(hdict["last_strategy"][m])
+                  for m in self.M if self.last_strategy[m]])
+        return ll / t
 
 
 class SUQR(StrategyAwareAttacker):
@@ -388,12 +396,12 @@ class USUQR(SUQR):
         super().__init__(g, pl_id, 1)
         self._use_memory = False
         self.mle = bool(mle)
+        self.last_w1 = None
+        self.last_w2 = None
 
-    def compute_strategy(self, strategy=None, history=None, **kwargs):
-        if history is not None:
-            a, b = self.weights_MLE(history=history)
-            # there should be a strategy! handle the exception?
-            return self.qr(strategy, a=None, b=None)
+    def compute_strategy(self, strategy=None, hdict=None, **kwargs):
+        if hdict is not None:
+            return self.qr(strategy, a=hdict["w"][0], b=hdict["w"][1])
         else:
             return super().compute_strategy(strategy=strategy)
 
@@ -401,32 +409,38 @@ class USUQR(SUQR):
         self.last_br = None
         return super().best_response(**kwargs)
 
-    def stochastic_gradient_descent(self):
+    def stochastic_gradient_descent(self, history=None,
+                                    ds_history=None, hdict=None):
+        if hdict is not None:
+            if "w" in hdict:
+                old_w1, old_w2 = hdict["w"]
+            else:
+                old_w1, old_w2 = self.w1, self.w2
+            s = ds_history[-1]
+            j = history[-1][1]
+        else:
+            old_w1, old_w2 = self.w1, self.w2
+            s = self.game.strategy_history[-1][0]
+            j = self.game.history[-1][1][0]
         v = [x[0] for x in self.game.values]
-        s = self.game.strategy_history[-1][0]
-        j = self.game.history[-1][1][0]
-        factors = [exp(-self.w1 * s[i] + self.w2 * v[i])
+        factors = [exp(-old_w1 * s[i] + old_w2 * v[i])
                    for i in range(len(v))]
         den = sum(factors)
         num1 = sum([(s[i] - s[j]) * f for i, f in enumerate(factors)])
         num2 = sum([(v[j] - v[i]) * f for i, f in enumerate(factors)])
         gr1, gr2 = num1 / den, num2 / den
         eta = 0.5
-        w1 = min(max(self.w1 + eta * gr1, 5), 15)
-        w2 = min(max(self.w2 + eta * gr2, 0), 1)
+        w1 = min(max(old_w1 + eta * gr1, 5), 15)
+        w2 = min(max(old_w2+ eta * gr2, 0), 1)
         return w1, w2
 
-    def weights_MLE(self, history=None):
-        # !!!! In order to use with FR implement this part !!!!!
-
-        # if history is not None:
-        #     pass
+    def weights_MLE(self, history=None, ds_history=None):
 
         bnds = tuple([(5, 15), (0, 1)])
         na, nb = 0, 0
 
         def fun(w):
-            return self.neg_loglk(w)
+            return self.neg_loglk(w, history, ds_history)
         num_ite = 1
         for ite in range(num_ite):
             x0 = [np.random.uniform(5, 15), np.random.uniform(0, 1)]
@@ -443,14 +457,37 @@ class USUQR(SUQR):
             self.w1, self.w2 = self.weights_MLE()
         else:
             self.w1, self.w2 = self.stochastic_gradient_descent()
-        self.last_br = None
+        #self.last_br = None
 
-    def neg_loglk(self, w):
+    def hlearn(self, history, ds_history, hdict):
+        hdict = {}
+        if self.mle:
+            hdict["w"] = self.weights_MLE(history, ds_history)
+        else:
+            hdict["w"] = self.stochastic_gradient_descent(history, ds_history, hdict)
+        return hdict
+        #self.last_br = None      
+
+    def loglk(self, old_loglk):
+        ll = - self.neg_loglk([self.w1, self.w2])
+        return ll / self.tau()
+
+    def hloglk(self, old_loglk, hdict,
+               history, ds_history):
+        t = len(self.game.strategy_history) + len(ds_history)
+        ll = - self.neg_loglk(hdict["w"], history, ds_history)
+        return ll / t
+
+    def neg_loglk(self, w, history=None, ds_history=None):
         ll = 0
         for i, strat in enumerate(self.game.strategy_history):
             s = strat[0]
             j = self.game.history[i][1][0]
             ll -= log(self.qr(s, w[0], w[1])[j])
+        if history is not None and ds_history is not None:
+            for i, s in enumerate(ds_history):
+                j = history[i][1]
+                ll -= log(self.qr(s, w[0], w[1])[j])
         return ll
 
     def __str__(self):

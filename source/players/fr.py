@@ -27,17 +27,18 @@ class FR(player.Defender):
 
     def finalize_init(self):
         super().finalize_init()
-        self.belief = source.belief.FrequentistBelief(self.game.profiles)
+        self.belief = source.belief.FrequentistBelief(self.game.profiles,
+                                                      need_pr=True)
 
     def compute_strategy(self):
-        R = self.reg_est(1, self.belief, [])
+        R = self.reg_est(1, self.belief, [], [], {p: None for p in self.A})
         min_k = min(range(len(self.A)), key=lambda k: R[k])
         return self.br_to(self.A[min_k])
 
     def learn(self):
-        self.belief.update(self.game.history[-1][1][0])
+        self.belief.update()
 
-    def reg_est(self, h, b, H):
+    def reg_est(self, h, b, H, ds_history, hdicts):
         """
         implements the Regret Estimator recursive function (RE)
         It returns a list of s_node regrets.
@@ -47,16 +48,19 @@ class FR(player.Defender):
         R = []  # list of the s_node regrets
 
         for k in self.game.profiles:
-            s_d = self.br_to(k, history=H)
+            s_d = self.br_to(k, hdict=hdicts[k])
+            ds_history1 = ds_history + [s_d]
             for t in self.A:
-                t.play_strategy(strategy=s_d, history=H)
+                t.play_strategy(strategy=s_d, hdict=hdicts[t])
             s_a = {q: q.last_strategy for q in self.A}
             for i, j in X(self.M, self.M):
                 H1 = H + [(i, j)]
+                hdicts1 = {q: q.hlearn(H1, ds_history1, hdicts[q])
+                           for q in self.A}
                 b1 = b.get_copy()
-                b1.update(j, add_time=len(H1))
+                b1.hupdate(hdicts1, H1, ds_history1, s_a)
                 if h < self.h_max:
-                    R1 = self.reg_est(h + 1, b1, H1)
+                    R1 = self.reg_est(h + 1, b1, H1, ds_history1, hdicts1)
                     r[(i, j, k)] = min(R1)
                 else:
                     r[(i, j, k)] = self.m_node_regret(H1, b1)

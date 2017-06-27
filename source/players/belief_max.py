@@ -14,19 +14,19 @@ class FB(player.Defender):
     def parse(cls, player_type, game, id):
         return spp.parse1(cls, player_type, game, id, spp.parse_integers)
 
-    def __init__(self, game, pl_id, resources=1, eps=False):
+    def __init__(self, game, pl_id, resources=1):
         super().__init__(game, pl_id, resources)
         self.belief = None
-        self.eps = bool(eps)
 
     def finalize_init(self):
         super().finalize_init()
-        self.belief = source.belief.FrequentistBelief(self.game.profiles,
-                                                      corr=self.eps)
+        self.belief = source.belief.FrequentistBelief(self.game.profiles)
 
     def compute_strategy(self):
-        p = max(self.game.profiles, key=lambda x: self.belief.pr[x])
+        valid_loglk = {p: self.belief.loglk[p] for p in self.A
+                       if self.belief.loglk[p] is not None}
+        p = max(valid_loglk.keys(), key=lambda x: valid_loglk[x])
         return self.br_to(p)
 
     def learn(self):
-        self.belief.update(self.game.history[-1][1][0])
+        self.belief.update()
