@@ -314,6 +314,9 @@ class UnknownStochasticAttacker(HistoryDependentAttacker):
                   for m in self.M if self.last_strategy[m]])
         return ll / t
 
+    def get_attacker(self):
+        return StochasticAttacker(self.game, 1)
+
 
 class SUQR(StrategyAwareAttacker):
 
@@ -489,6 +492,9 @@ class USUQR(SUQR):
                 j = history[i][1]
                 ll -= log(self.qr(s, w[0], w[1])[j])
         return ll
+
+    def get_attacker(self):
+        return SUQR(self.game, 1)
 
     def __str__(self):
         if not self.mle:

@@ -351,6 +351,11 @@ class Attacker(Player):
     def hlearn(self, H, ds_history, hdict):
         return {}
 
+    def get_attacker(self):
+        att = deepcopy(self)
+        att.game = self.game
+        return att
+
 
 def sample(distribution, items_number):
     selected_indexes = np.random.choice(len(distribution),

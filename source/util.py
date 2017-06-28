@@ -144,21 +144,32 @@ def gen_tar_with_len(length):
 
 def gen_pdict(g, prof_list):
     import source.players.attackers as atk
+    import source.parsers as parsers
     Prof = namedtuple("Prof", ["prof", "adv"])
-    suqr_atk = atk.SUQR(g, 1)
-    sto_atk = atk.StochasticAttacker(g, 1)
-    atk_dict = {
-                "usto": Prof(prof=atk.UnknownStochasticAttacker(g, 1),
-                             adv=atk.StochasticAttacker(g, 1)),
-                "sta": Prof(prof=atk.StackelbergAttacker(g, 1),
-                            adv=atk.StackelbergAttacker(g, 1)),
-                "suqr": Prof(prof=suqr_atk, adv=suqr_atk),
-                "sto": Prof(prof=sto_atk, adv=sto_atk),
-                "fp": Prof(prof=atk.FictitiousPlayerAttacker(g, 1),
-                           adv=atk.FictitiousPlayerAttacker(g, 1)),
-                "usuqr": Prof(prof=atk.USUQR(g, 1), adv=atk.SUQR(g, 1))
-                }
+    atk_dict = dict()
+    for p in prof_list:
+        profile = parsers.parse_player(p, g, 1)
+        atk_dict[p] = Prof(prof=profile, adv=profile.get_attacker())
     return {p: atk_dict[p] for p in prof_list}
+
+
+# def gen_pdict(g, prof_list):
+#     import source.players.attackers as atk
+#     Prof = namedtuple("Prof", ["prof", "adv"])
+#     suqr_atk = atk.SUQR(g, 1)
+#     sto_atk = atk.StochasticAttacker(g, 1)
+#     atk_dict = {
+#                 "usto": Prof(prof=atk.UnknownStochasticAttacker(g, 1),
+#                              adv=atk.StochasticAttacker(g, 1)),
+#                 "sta": Prof(prof=atk.StackelbergAttacker(g, 1),
+#                             adv=atk.StackelbergAttacker(g, 1)),
+#                 "suqr": Prof(prof=suqr_atk, adv=suqr_atk),
+#                 "sto": Prof(prof=sto_atk, adv=sto_atk),
+#                 "fp": Prof(prof=atk.FictitiousPlayerAttacker(g, 1),
+#                            adv=atk.FictitiousPlayerAttacker(g, 1)),
+#                 "usuqr": Prof(prof=atk.USUQR(g, 1), adv=atk.SUQR(g, 1))
+#                 }
+#     return {p: atk_dict[p] for p in prof_list}
 
 
 def gen_profiles(targets, p_pair_lst):
