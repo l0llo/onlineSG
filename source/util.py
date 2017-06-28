@@ -148,9 +148,14 @@ def gen_pdict(g, prof_list):
     Prof = namedtuple("Prof", ["prof", "adv"])
     atk_dict = dict()
     for p in prof_list:
-        profile = parsers.parse_player(p, g, 1)
-        atk_dict[p] = Prof(prof=profile, adv=profile.get_attacker())
-    return {p: atk_dict[p] for p in prof_list}
+        if isinstance(p, tuple):
+            profile = parsers.parse_player(p[0], g, 1)
+            attacker = parsers.parse_player(p[1], g, 1)
+            atk_dict[p[0]] = Prof(prof=profile, adv=attacker)
+        else:
+            profile = parsers.parse_player(p, g, 1)
+            atk_dict[p] = Prof(prof=profile, adv=profile.get_attacker())
+    return atk_dict
 
 
 # def gen_pdict(g, prof_list):
