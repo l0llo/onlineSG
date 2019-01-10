@@ -271,7 +271,7 @@ class UnknownStochasticAttacker(HistoryDependentAttacker):
     def best_response(self, **kwargs):
         """
         best reponse to an unknown stochastic attacker using FPL. If
-        `rep` keyword is not set, it returns a pure strategy,otherwise it 
+        `rep` keyword is not set, it returns a pure strategy,otherwise it
         returns a mixed strategy obtained by averaging over `rep` samples of
         computed strategies.
         Due to the  randomization involved in the br computation, calling
@@ -469,7 +469,7 @@ class USUQR(SUQR):
         else:
             hdict["w"] = self.stochastic_gradient_descent(history, ds_history, hdict)
         return hdict
-        #self.last_br = None      
+        #self.last_br = None
 
     def loglk(self, old_loglk):
         ll = - self.neg_loglk([self.w1, self.w2])
@@ -501,3 +501,98 @@ class USUQR(SUQR):
             return self.__class__.name + "0"
         else:
             return self.__class__.name
+
+class ObservingStackelbergAttacker(StackelbergAttacker):
+    """
+    This attacker takes into account the defender strategy as the Stackelberg does,
+    but also the observation probabilities of the targets.
+    """
+
+    name = "obsta"
+    pattern = re.compile(r"^" + name + "\d*$")
+
+    def best_respond(self, strategies):
+
+        if not isinstance(strategies, dict):
+            strategies = {0: strategies}
+
+        targets = range(len(self.game.values))
+
+        # compute total probability of being covered for each target (c[t])
+        defenders_strategies = [np.array(strategies[d])
+                                for d in self.game.defenders]
+
+        # (sum the probabilities of differents defenders)
+        not_norm_coverage = sum(defenders_strategies)
+
+        # normalize
+        coverage = not_norm_coverage / np.linalg.norm(not_norm_coverage,
+                                                      ord=1)
+
+        # compute the expected value of each target (v[t]*(1-o[t]*c[t]))
+        values = np.array([self.game.values[t][self.id] for t in targets])
+        if isinstance(self.game, GameWithObservabilities):
+            expected_payoffs = np.array([values[t] * (1 - coverage[t] * self.game.observabilities.get(t))] for t in targets)
+        else:
+            expected_payoffs = np.array([values[t] * (1 - coverage[t])] for t in targets)
+        expected_payoffs = [round(v, 3) for v in expected_payoffs]
+
+        # play the argmax
+        ordered_targets = sorted(targets,
+                                 key=lambda t: expected_payoffs[t],
+                                 reverse=True)[:]
+        selected_targets = ordered_targets[:self.resources - 1]
+        last_max = max([expected_payoffs[t] for t in targets
+                        if t not in selected_targets])
+        max_indexes = [i for i in targets if expected_payoffs[i] == last_max]
+        # select the target which is the BEST for the defender (convention)
+        # only 1st defender is taken into account
+        d = self.game.defenders[0]
+        best_for_defender = max(max_indexes, key=lambda x: -self.game.values[x][d])
+        selected_targets.append(best_for_defender)
+        return [int(t in selected_targets) for t in targets]
+
+class ObservingSUQR(SUQR):
+
+    name = "obsuqr"
+    pattern = re.compile(r"^" + name + r"(\d+(-\d+(\.\d+)?){2})?$")
+
+    def __init__(self, g, pl_id, use_memory=True, w1=None,
+                 w2=None, w3=None):
+                 super().__init__(g, pl_id, 1, use_memory, w1, w2)
+                 if w3 is None:
+                     self.w3 = round(np.random.uniform(0, 1), 3) #TODO: extreme values need to be checked
+                 else:
+                     self.w3 = w3
+
+    def qr(self, x, a=None, b=None, c=None):
+        if self._use_memory:
+            if tuple(x) in self.memory:
+                return self.memory[tuple(x)]
+        targets = list(range(len(self.game.values)))
+        R = [v[self.id] for v in self.game.values]
+        if isinstance(self.game, GameWithObservabilities):
+            if a is not None and b is not None and c is not None:
+                q = np.array([exp((-a * x[t] +
+                                b * R[t]
+                                -c * self.game.observabilities.get(t)))
+                                for t in targets])
+            else:
+                q = np.array([exp((-self.w1 * x[t] +
+                                self.w2 * R[t]
+                                -self.w3 * self.game.observabilities.get(t)))
+                                for t in targets])
+        else:
+            if a is not None and b is not None and c is not None:
+                q = np.array([exp((-a * x[t] +
+                                b * R[t]))
+                                for t in targets])
+            else:
+                q = np.array([exp((-self.w1 * x[t] +
+                                self.w2 * R[t]))
+                                for t in targets])
+
+        q /= np.linalg.norm(q, ord=1)
+        if self._use_memory:
+            self.memory[tuple(x)] = list(q)
+        return list(q)

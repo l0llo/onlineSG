@@ -14,7 +14,7 @@ class Player:
     that every player shares as :meth:`sample_strategy`, :meth:`finalize_init`
     , :meth:`tau` and :meth:`receive_feedback`
 
-    Each subclass has class attributes (name and pattern) and a class 
+    Each subclass has class attributes (name and pattern) and a class
     method (parse): they are used for the parsing of the player columns in
     the config files. Player itself should not be ever instanciated
 

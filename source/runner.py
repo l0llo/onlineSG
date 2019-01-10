@@ -278,6 +278,16 @@ class Experiment:
         self.agent.receive_feedback(feedback)
         self.update_stats()
 
+    def run_interaction_with_observations(self):
+        strategy = self.agent.play_strategy()
+        self.environment.observe_strategy(strategy)
+        realization = self.agent.sample_strategy()
+        self.game.sample_observation(realization)
+        self.environment.observe_realization(realization)
+        feedback = self.environment.feedback("expert")
+        self.agent.receive_feedback(feedback)
+        self.update_stats()
+
     def update_stats(self):
         el = self.environment.last_exp_loss
         ol = self.environment.last_opt_loss

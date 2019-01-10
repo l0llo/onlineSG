@@ -19,7 +19,7 @@ class Game:
     game application should have only one Game instance, but singleton design
     pattern has not been implemented in order to leave open the possibility
     of having multiple game, e.g. mock games for exploration purposes.
-    
+
     A Game object can be created in several ways:
 
     * using its constructor, or using zero sum game one :meth:`zs_game`
@@ -38,10 +38,10 @@ class Game:
     :var strategy_history:  list of dict for each turn: each one is made by
                             the strategies of the players
     :var profiles:  list of attackers: the true attacker is of the same of one
-        of them however it is NOT the same object. Profiles are "ghost" 
+        of them however it is NOT the same object. Profiles are "ghost"
         players, in the sense that they evolve through time (some learn during
         the game) in order to mantain a correct model of the profile they
-        represent. 
+        represent.
     """
 
     value_patterns = [re.compile(r"^\d+$"),
@@ -166,7 +166,7 @@ class Game:
         """
         `DEPRECATED: use directly the actual profiles, without modifying them`
 
-        returns a deep copy of the profiles 
+        returns a deep copy of the profiles
         """
         profiles = deepcopy(self.profiles)
         for p in profiles:
@@ -214,6 +214,56 @@ def load(game_file):
     with open(game_file, mode='r+b') as file:
         game = pickle.load(file)
     return game
+
+class GameWithObservabilities(Game):
+    def __init__(self, payoffs, time_horizon):
+        super().__init__(payoffs, time_horizon)
+        self.observabilities = dict()
+        self.observation_history = []
+
+    def get_player_payoffs(self, player_index, moves, observations):
+        """
+        It returns the utility of a player given a dict
+        of moves. Each move is a tuple of target indexes
+        """
+        covered_targets = set(t for d in self.defenders for t in [x[0] for x in observations if x[1]])
+
+        if player_index in self.attackers:
+            hit_targets = set(t for t in moves[player_index]
+                              if t not in covered_targets)
+            return [v[player_index] * (i in hit_targets)
+                    for (i, v) in enumerate(self.values)]
+        elif player_index in self.defenders:
+            all_hit_targets = set(t for a in self.attackers for t in moves[a]
+                                  if t not in covered_targets)
+            return [-(v[player_index]) * (i in all_hit_targets)
+                    for (i, v) in enumerate(self.values)]
+        else:
+            raise Exception(
+                "Cannot compute utility for an index than does not exist: " +
+                str(player_index) + " " + str(self.defenders)
+            )
+
+    def get_last_turn_payoffs(self, player_index):
+        """
+        returns the payoff list of the last turn given a player index
+        """
+        return self.get_player_payoffs(player_index, self.history[-1], self.observation_history[-1])
+
+    def set_observabilities(self, observabilities):
+        if len(observabilities) != len(self.values):
+            print("Observabilities and targets have different lengths")
+        else:
+            self.observabilities = observabilities
+
+    def sample_observation(self, moves, observabilities):
+        """
+        Samples observations for the moves made in a turn, according to the observabilities of the corresponding targets
+        """
+        observations = [(a, np.random.choice(2, p=[observabilities.get(a), 1 - observabilities.get(a)])) for a in moves]
+        self.observation_history.append(dict())
+        self.observation_history[-1] = observations
+
 
 
 class AutoJSONEncoder(JSONEncoder):
@@ -267,7 +317,6 @@ def example_game2():
     p = Player(g, 1, 1)
     g.set_players([d], [a], [p])
     return deepcopy(g)
-
 
 if __name__ == '__main__':
     main()

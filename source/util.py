@@ -141,6 +141,20 @@ def gen_tar_with_len(length):
         len_s = len(s)
     return s
 
+def gen_observabilities_with_len(length):
+    """
+    Just a simple function to randomly generate distinct observability probabilities
+    """
+    if length <= 0:
+        print("Length must be positive!")
+    else:
+        observabilities = dict()
+        for i in range(length):
+            o = round(np.random.uniform(0, 1), 3)
+            while o in observabilities or o < 0.5: #edit this to set desired threshold
+                o = round(np.random.uniform(0, 1), 3)
+            observabilities[i] = o
+        return observabilities
 
 def gen_pdict(g, prof_list):
     import source.players.attackers as atk

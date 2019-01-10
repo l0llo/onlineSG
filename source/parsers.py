@@ -16,7 +16,7 @@ class Parser:
     targets_headers     as below
     attackers_headers   as below
     defenders_headers   the relative dataframe header
-    
+
     """
 
     def __init__(self, csv_file_path):
@@ -25,6 +25,7 @@ class Parser:
         self.attackers_headers = []
         self.defenders_headers = []
         self.profile_headers = []
+        self.observability_headers = []
         for h in self.df.columns:
             try:
                 self.targets_headers.append(int(h))
@@ -35,6 +36,8 @@ class Parser:
                     self.defenders_headers.append(h)
                 elif "Profile" in h:
                     self.profile_headers.append(h)
+                elif "observability" in h:
+                    self.observability_headers.append(h)
                 elif h != "T" and h != "Name":
                     raise UnknownHeaderError
 
@@ -54,11 +57,13 @@ class Parser:
                          if isinstance(self.df[d].iloc[index], str)]
         values = [self.df[str(t)].iloc[index]
                   for t in self.targets_headers]
+        observabilities = list(map(lambda x: float(x), [self.df[o].iloc[index]
+                        for o in self.observability_headers]))
         name = self.df["Name"].iloc[index]
         time_horizon = int(self.df["T"].iloc[index])
         player_number = len(attacker_types) + len(defender_types)
         try:
-            game = parse_game(values, player_number, time_horizon)
+            game = parse_game(values, player_number, time_horizon, observabilities)
             defenders_ids = [parse_player(d, game, j)
                              for (j, d) in enumerate(defender_types)]
             attacker_ids = [parse_player(a, game, i + len(defenders_ids))
@@ -90,7 +95,7 @@ def parse_player(player_type, game, id):
     raise UnparsablePlayerError(player_type)
 
 
-def parse_game(values, player_number, time_horizon):
+def parse_game(values, player_number, time_horizon, observabilities):
     """
     tries to parse the values calling the parse class method of all the
     classes of game module, and then return a game; otherwise raises an
@@ -104,8 +109,8 @@ def parse_game(values, player_number, time_horizon):
         parsed_values = None
         try:
             parsed_values = c.parse_value(values, player_number)
-            if parsed_values:
-                return c(parsed_values, time_horizon)
+            if parsed_values and len(parsed_values) == len(observabilities) and reduce(lambda x, y: x and y, list(map(lambda x: x >= 0 and x <= 1, observabilities))):
+               return c(parsed_values, time_horizon, observabilities)
         except NonHomogeneousTuplesError as e:
             raise UnparsableGameError(values) from e
     raise UnparsableGameError(values)

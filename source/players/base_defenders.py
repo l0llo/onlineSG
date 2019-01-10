@@ -156,7 +156,8 @@ class ExpertDefender(player.Defender):
                   self.game.strategy_history[-1][self.id]):
                 a = e.sample_strategy()
                 moves[0] = a
-            current_reward = sum(self.game.get_player_payoffs(0, moves))
+            observations = copy(self.game.observation_history[-1])
+            current_reward = sum(self.game.get_player_payoffs(0, moves, observations))
             self.avg_rewards[e] = ((self.avg_rewards[e] * (self.tau() - 1) +
                                     current_reward) / self.tau())
 
@@ -212,7 +213,7 @@ class ExpertDefender(player.Defender):
 
 class MABDefender(ExpertDefender):
     """
-    Learns in a Multi Armed Bandit way: only the selected expert (arm) can 
+    Learns in a Multi Armed Bandit way: only the selected expert (arm) can
     observe the feedback of the chosen action
     """
 
@@ -241,7 +242,8 @@ class MABDefender(ExpertDefender):
     def learn(self):
         e = self.sel_arm
         moves = copy(self.game.history[-1])
-        current_reward = sum(self.game.get_player_payoffs(0, moves))
+        observations = copy(self.game.observation_history[-1])
+        current_reward = sum(self.game.get_player_payoffs(0, moves, observations))
         self.avg_rewards[e] = ((self.avg_rewards[e] * max(self.weight[e], 1) +
                                 current_reward) / (self.weight[e] + 1))
         self.weight[e] += 1
