@@ -7,15 +7,20 @@ import source.players.belief_max as bm
 import source.players.fr as fr
 import source.players.baseline as bl
 from source.errors import *
+import re
+import collections
+import source.players.base_defenders as bd
+import source.players.defenders as defenders
 
 
 class Parser:
     """
     Attributes
     df the pandas dataframe corresponding to the config file gives as input
-    targets_headers     as below
-    attackers_headers   as below
-    defenders_headers   the relative dataframe header
+    targets_headers          as below
+    attackers_headers        as below
+    defenders_headers        as below
+    observability_headers    the relative dataframe header
 
     """
 
@@ -26,6 +31,7 @@ class Parser:
         self.defenders_headers = []
         self.profile_headers = []
         self.observability_headers = []
+        observability_pattern = re.compile(r'Obs(\d)+$')
         for h in self.df.columns:
             try:
                 self.targets_headers.append(int(h))
@@ -36,15 +42,21 @@ class Parser:
                     self.defenders_headers.append(h)
                 elif "Profile" in h:
                     self.profile_headers.append(h)
-                elif "observability" in h:
+                elif observability_pattern.match(h):
                     self.observability_headers.append(h)
                 elif h != "T" and h != "Name":
                     raise UnknownHeaderError
+        observability_targets = [int(o[3:]) for o in self.observability_headers]
+        if (observability_targets and
+            collections.Counter(self.targets_headers) != collections.Counter(observability_targets)):
+           raise TargetsAndObservabilitiesMismatchError
 
     def parse_row(self, index):
         """
         returns a game object from the row at the specified index of the config
-        file.
+        file. if the row as 'Obs' headers than a game with observabilities object
+        will be returned: given observabilities shall be probability values and
+        any non-probability given value will be assumed to be 1.
         """
         attacker_types = [self.df[a].iloc[index]
                           for a in self.attackers_headers
@@ -57,13 +69,21 @@ class Parser:
                          if isinstance(self.df[d].iloc[index], str)]
         values = [self.df[str(t)].iloc[index]
                   for t in self.targets_headers]
-        observabilities = list(map(lambda x: float(x), [self.df[o].iloc[index]
-                        for o in self.observability_headers]))
+        observabilities = dict()
+        for o in self.observability_headers:
+            try:
+                obs = round(float(self.df[o].iloc[index]), 3)
+                observabilities[int(o[3:])] = obs if 0 <= obs <= 1 else 1.0
+            except ValueError:
+                observabilities[int(o[3:])] = 1.0
         name = self.df["Name"].iloc[index]
         time_horizon = int(self.df["T"].iloc[index])
         player_number = len(attacker_types) + len(defender_types)
         try:
-            game = parse_game(values, player_number, time_horizon, observabilities)
+            if not observabilities:
+                game = parse_game(values, player_number, time_horizon)
+            else:
+                game = parse_gamewithobservabilities(values, player_number, time_horizon, observabilities)
             defenders_ids = [parse_player(d, game, j)
                              for (j, d) in enumerate(defender_types)]
             attacker_ids = [parse_player(a, game, i + len(defenders_ids))
@@ -85,6 +105,8 @@ def parse_player(player_type, game, id):
     """
     players_classes = sum([get_classes(player),
                            get_classes(attackers),
+                           get_classes(defenders),
+                           get_classes(bd),
                            get_classes(bl),
                            get_classes(bm),
                            get_classes(fr)], [])
@@ -95,7 +117,7 @@ def parse_player(player_type, game, id):
     raise UnparsablePlayerError(player_type)
 
 
-def parse_game(values, player_number, time_horizon, observabilities):
+def parse_game(values, player_number, time_horizon):
     """
     tries to parse the values calling the parse class method of all the
     classes of game module, and then return a game; otherwise raises an
@@ -109,12 +131,31 @@ def parse_game(values, player_number, time_horizon, observabilities):
         parsed_values = None
         try:
             parsed_values = c.parse_value(values, player_number)
-            if parsed_values and len(parsed_values) == len(observabilities) and reduce(lambda x, y: x and y, list(map(lambda x: x >= 0 and x <= 1, observabilities))):
-               return c(parsed_values, time_horizon, observabilities)
+            if parsed_values:
+                return c(parsed_values, time_horizon)
         except NonHomogeneousTuplesError as e:
             raise UnparsableGameError(values) from e
     raise UnparsableGameError(values)
 
+def parse_gamewithobservabilities(values, player_number, time_horizon, observabilities):
+    """
+    similar to the parse_game method, this method also tries to parse
+    the observabilities of the game and then returns a game with
+    observabilities
+    """
+    games_classes = [obj for name, obj in inspect.getmembers(game)
+                     if inspect.isclass(obj) and
+                     issubclass(obj, game.GameWithObservabilities) and
+                     hasattr(obj, 'parse_value')]
+    for c in games_classes:
+        parsed_values = None
+        try:
+            parsed_values = c.parse_value(values, player_number)
+            if parsed_values:
+                return c(parsed_values, time_horizon, observabilities)
+        except NonHomogeneousTuplesError as e:
+            raise UnparsableGameError(values) from e
+    raise UnparsableGameError(values)
 
 def get_classes(module):
     return [c[1] for c in inspect.getmembers(module)

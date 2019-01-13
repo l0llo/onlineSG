@@ -216,9 +216,11 @@ def load(game_file):
     return game
 
 class GameWithObservabilities(Game):
-    def __init__(self, payoffs, time_horizon):
+    def __init__(self, payoffs, time_horizon, observabilities = None):
         super().__init__(payoffs, time_horizon)
         self.observabilities = dict()
+        if type(observabilities) is dict:
+            self.observabilities = observabilities
         self.observation_history = []
 
     def get_player_payoffs(self, player_index, moves, observations):

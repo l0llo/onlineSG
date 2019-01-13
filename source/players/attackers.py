@@ -552,6 +552,30 @@ class ObservingStackelbergAttacker(StackelbergAttacker):
         selected_targets.append(best_for_defender)
         return [int(t in selected_targets) for t in targets]
 
+        def best_response(self, **kwargs):
+            if not self.last_br:
+                A_ub = []
+                for t in self.M:
+                    terms = [self.game.values[t][self.id] * int(i != t if i != t or not isinstance(self.game, GameWithObservabilities)
+                                                                        else 1 - self.game.observabilities.get(t))
+                             for i in self.M]
+                    terms += [1]
+                    A_ub.append(terms)
+                b_ub = [0 for i in range(len(A_ub))]
+                A_eq = [[1 for i in self.M] + [0]]
+                b_eq = [1]
+                bounds = [(0, 1) for i in self.M] + [(None, None)]
+                scipy_sol = list(scipy.optimize.linprog([0 for i in self.M] + [-1],
+                                                        A_ub=np.array(A_ub),
+                                                        b_ub=np.array(b_ub),
+                                                        A_eq=np.array(A_eq),
+                                                        b_eq=np.array(b_eq),
+                                                        bounds=bounds,
+                                                        method='simplex').x)
+
+                self.last_br, self.last_ol = scipy_sol[:-1], -scipy_sol[-1]
+            return self.last_br
+
 class ObservingSUQR(SUQR):
 
     name = "obsuqr"

@@ -105,3 +105,6 @@ class NotFinalizedError(OSG_Error):
 
 class InvArgError(OSG_Error):
     pass
+
+class TargetsAndObservabilitiesMismatchError(OSG_Error):
+    pass
