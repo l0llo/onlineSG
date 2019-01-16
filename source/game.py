@@ -223,12 +223,15 @@ class GameWithObservabilities(Game):
             self.observabilities = observabilities
         self.observation_history = []
 
-    def get_player_payoffs(self, player_index, moves, observations):
+    def get_player_payoffs(self, player_index, moves, observations=None):
         """
         It returns the utility of a player given a dict
         of moves. Each move is a tuple of target indexes
         """
-        covered_targets = set(t for d in self.defenders for t in [x[0] for x in observations if x[1]])
+        if observations is not None:
+            covered_targets = set(t for d in self.defenders for t in [x[0] for x in observations if x[1]])
+        else:
+            covered_targets = set(t for d in self.defenders for t in moves[d])
 
         if player_index in self.attackers:
             hit_targets = set(t for t in moves[player_index]
@@ -258,11 +261,11 @@ class GameWithObservabilities(Game):
         else:
             self.observabilities = observabilities
 
-    def sample_observation(self, moves, observabilities):
+    def sample_observation(self, moves):
         """
         Samples observations for the moves made in a turn, according to the observabilities of the corresponding targets
         """
-        observations = [(a, np.random.choice(2, p=[observabilities.get(a), 1 - observabilities.get(a)])) for a in moves]
+        observations = [(a, np.random.choice(2, p=[self.observabilities.get(a), 1 - self.observabilities.get(a)])) for a in moves]
         self.observation_history.append(dict())
         self.observation_history[-1] = observations
 

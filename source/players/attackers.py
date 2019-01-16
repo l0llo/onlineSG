@@ -7,6 +7,7 @@ from math import exp, sqrt, log
 import source.util as util
 import scipy.optimize
 import logging
+import source.game as game
 
 logger = logging.getLogger(__name__)
 
@@ -502,7 +503,7 @@ class USUQR(SUQR):
         else:
             return self.__class__.name
 
-class ObservingStackelbergAttacker(StackelbergAttacker):
+class ObservingStackelbergAttacker(player.ObservingAttacker, StackelbergAttacker):
     """
     This attacker takes into account the defender strategy as the Stackelberg does,
     but also the observation probabilities of the targets.
@@ -510,6 +511,19 @@ class ObservingStackelbergAttacker(StackelbergAttacker):
 
     name = "obsta"
     pattern = re.compile(r"^" + name + "\d*$")
+
+    def exp_loss(self, strategy_vec, **kwargs):
+        """
+        exp loss for a strategy aware attacker
+        """
+        if isinstance(strategy_vec, dict):
+            # logger.debug(str(strategy_vec) + " " + str(type(strategy_vec)))
+            # only for testing purposes
+            return player.ObservingAttacker.exp_loss(self, strategy_vec, **kwargs)
+        else:
+            str_dict = {0: strategy_vec,
+                        1: self.compute_strategy(strategy=strategy_vec)}
+            return player.ObservingAttacker.exp_loss(self, str_dict)
 
     def best_respond(self, strategies):
 
@@ -531,10 +545,10 @@ class ObservingStackelbergAttacker(StackelbergAttacker):
 
         # compute the expected value of each target (v[t]*(1-o[t]*c[t]))
         values = np.array([self.game.values[t][self.id] for t in targets])
-        if isinstance(self.game, GameWithObservabilities):
-            expected_payoffs = np.array([values[t] * (1 - coverage[t] * self.game.observabilities.get(t))] for t in targets)
+        if isinstance(self.game, game.GameWithObservabilities):
+            expected_payoffs = [values[t] * (1 - coverage[t] * self.game.observabilities.get(t)) for t in targets]
         else:
-            expected_payoffs = np.array([values[t] * (1 - coverage[t])] for t in targets)
+            expected_payoffs = values * (np.ones(len(targets)) - coverage)
         expected_payoffs = [round(v, 3) for v in expected_payoffs]
 
         # play the argmax
@@ -556,8 +570,8 @@ class ObservingStackelbergAttacker(StackelbergAttacker):
             if not self.last_br:
                 A_ub = []
                 for t in self.M:
-                    terms = [self.game.values[t][self.id] * int(i != t if i != t or not isinstance(self.game, GameWithObservabilities)
-                                                                        else 1 - self.game.observabilities.get(t))
+                    terms = [self.game.values[t][self.id] * int(i != t if i != t or not isinstance(self.game, game.GameWithObservabilities)
+                                                                       else 1 - self.game.observabilities.get(t))
                              for i in self.M]
                     terms += [1]
                     A_ub.append(terms)
@@ -576,18 +590,35 @@ class ObservingStackelbergAttacker(StackelbergAttacker):
                 self.last_br, self.last_ol = scipy_sol[:-1], -scipy_sol[-1]
             return self.last_br
 
-class ObservingSUQR(SUQR):
+class ObservingSUQR(player.ObservingAttacker, SUQR):
 
     name = "obsuqr"
     pattern = re.compile(r"^" + name + r"(\d+(-\d+(\.\d+)?){2})?$")
 
+    @classmethod
+    def parse(cls, player_type, game, id):
+        return spp.parse1(cls, player_type, game, id, spp.parse_float)
+
     def __init__(self, g, pl_id, use_memory=True, w1=None,
                  w2=None, w3=None):
-                 super().__init__(g, pl_id, 1, use_memory, w1, w2)
+                 super().__init__(g, pl_id, use_memory, w1, w2)
                  if w3 is None:
                      self.w3 = round(np.random.uniform(0, 1), 3) #TODO: extreme values need to be checked
                  else:
                      self.w3 = w3
+
+    def exp_loss(self, strategy_vec, **kwargs):
+        """
+        exp loss for a strategy aware attacker
+        """
+        if isinstance(strategy_vec, dict):
+            # logger.debug(str(strategy_vec) + " " + str(type(strategy_vec)))
+            # only for testing purposes
+            return player.ObservingAttacker.exp_loss(self, strategy_vec, **kwargs)
+        else:
+            str_dict = {0: strategy_vec,
+                        1: self.compute_strategy(strategy=strategy_vec)}
+            return player.ObservingAttacker.exp_loss(self, str_dict)
 
     def qr(self, x, a=None, b=None, c=None):
         if self._use_memory:
@@ -595,7 +626,7 @@ class ObservingSUQR(SUQR):
                 return self.memory[tuple(x)]
         targets = list(range(len(self.game.values)))
         R = [v[self.id] for v in self.game.values]
-        if isinstance(self.game, GameWithObservabilities):
+        if isinstance(self.game, game.GameWithObservabilities):
             if a is not None and b is not None and c is not None:
                 q = np.array([exp((-a * x[t] +
                                 b * R[t]

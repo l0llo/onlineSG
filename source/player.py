@@ -4,6 +4,7 @@ from copy import deepcopy
 import enum
 from source.errors import AlreadyFinalizedError
 from math import log
+import source.game as game
 #: The possible type of learning of a learner player
 # Learning = enum.Enum('Learning', 'MAB EXPERT OTHER')
 
@@ -362,3 +363,33 @@ def sample(distribution, items_number):
                                         items_number,
                                         p=distribution, replace=False)
     return [e for e in selected_indexes]
+
+class ObservingAttacker(Attacker):
+
+    def exp_loss(self, strategy_vec, **kwargs):
+        if isinstance(strategy_vec, dict):
+            return -sum([s_d *
+                         sum([s_a * sum(self.game.
+                                        get_player_payoffs(0, {0: [i], 1:[j]})) *
+                              (1 if j != i
+                                else 0 if not isinstance(self.game, game.GameWithObservabilities)
+                                else (1 - self.game.observabilities.get(i)))
+                               for j, s_a in enumerate(strategy_vec[1])
+                               ])
+                          for i, s_d in enumerate(strategy_vec[0])])
+        #    exp_loss = 0
+        #    k = 0
+        #    for i, s_d in enumerate(strategy_vec[0]):
+        #        for j, s_a in enumerate(strategy_vec[1]):
+        #            if j != i:
+        #                k = 1
+        #            elif not isinstance(self.game, game.GameWithObservabilities):
+        #                k = 0
+        #            else:
+        #                k = (1 - self.game.observabilities.get(i))
+        #                exp_loss = exp_loss - sum([s_d * sum ([s_a * sum(self.game. get_player_payoffs(0, {0: [i], 1:[j]})) * k])])
+        #                return exp_loss
+
+        else:
+            return self.exp_loss({0: strategy_vec,
+                                  1: self.compute_strategy(**kwargs)})
