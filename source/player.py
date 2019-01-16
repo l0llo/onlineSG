@@ -393,3 +393,75 @@ class ObservingAttacker(Attacker):
         else:
             return self.exp_loss({0: strategy_vec,
                                   1: self.compute_strategy(**kwargs)})
+
+    def best_respond(self, strategies):
+        if not isinstance(strategies, dict):
+            strategies = {0: strategies}
+        targets = range(len(self.game.values))
+        # compute total probability of being covered for each target (c[t])
+        defenders_strategies = [np.array(strategies[d])
+                                for d in self.game.defenders]
+        # (sum the probabilities of differents defenders)
+        not_norm_coverage = sum(defenders_strategies)
+        # normalize
+        coverage = not_norm_coverage / np.linalg.norm(not_norm_coverage,
+                                                      ord=1)
+        # compute the expected value of each target (v[t]*(1-o[t]*c[t])) if game has observabilities, otherwise as ususal
+        values = np.array([self.game.values[t][self.id] for t in targets])
+        if isinstance(self.game, game.GameWithObservabilities):
+            expected_payoffs = [values[t] * (1 - coverage[t] * self.game.observabilities.get(t)) for t in targets]
+        else:
+            expected_payoffs = values * (np.ones(len(targets)) - coverage)
+        expected_payoffs = [round(v, 3) for v in expected_payoffs]
+        # play the argmax
+        ordered_targets = sorted(targets,
+                                 key=lambda t: expected_payoffs[t],
+                                 reverse=True)[:]
+        selected_targets = ordered_targets[:self.resources - 1]
+        last_max = max([expected_payoffs[t] for t in targets
+                        if t not in selected_targets])
+        max_indexes = [i for i in targets if expected_payoffs[i] == last_max]
+        # select the target which is the BEST for the defender (convention)
+        # only 1st defender is taken into account
+        d = self.game.defenders[0]
+        best_for_defender = max(max_indexes, key=lambda x: -self.game.values[x][d])
+        selected_targets.append(best_for_defender)
+        return [int(t in selected_targets) for t in targets]
+
+    def best_respond_mixed(self, strategies):
+        """
+        Compute the pure strategy that best respond to a given dict of
+        defender strategies.
+        it DOES randomize over indifferent maximum actions
+        """
+        targets = range(len(self.game.values))
+
+        # compute total probability of being covered for each target (c[t])
+        defenders_strategies = [np.array(strategies[d])
+                                for d in self.game.defenders]
+
+        # (sum the probabilities of differents defenders)
+        not_norm_coverage = sum(defenders_strategies)
+
+        # normalize
+        coverage = not_norm_coverage / np.linalg.norm(not_norm_coverage,
+                                                      ord=1)
+
+        # compute the expected value of each target (v[t]*(1-c[t])) if game has observabilities, otherwise as ususal
+        values = np.array([self.game.values[t][self.id] for t in targets])
+        if isinstance(self.game, game.GameWithObservabilities):
+            expected_payoffs = [values[t] * (1 - coverage[t] * self.game.observabilities.get(t)) for t in targets]
+        else:
+            expected_payoffs = values * (np.ones(len(targets)) - coverage)
+        expected_payoffs = [round(v, 3) for v in expected_payoffs]
+        # play the argmax
+        ordered_targets = sorted(targets,
+                                 key=lambda t: expected_payoffs[t],
+                                 reverse=True)[:]
+        selected_targets = ordered_targets[:self.resources - 1]
+        # randomize over the 'last resource'
+        last_max = round(max([expected_payoffs[t] for t in targets
+                              if t not in selected_targets]), 3)
+        max_indexes = [i for i in targets if expected_payoffs[i] == last_max]
+        selected_targets.append(np.random.choice(max_indexes))
+        return [int(t in selected_targets) for t in targets]

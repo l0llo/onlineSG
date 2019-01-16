@@ -9,6 +9,7 @@ import enum
 import gurobipy
 import scipy.optimize
 import source.util as util
+import source.game as game
 
 ExpAlgorithm = enum.Enum('ExpAlgorithm', 'fpl wm fpls')
 
@@ -402,3 +403,30 @@ class SUQRDefender(player.Defender):
                                           constraints=cons, tol=0.000001)
             self.br_suqr_strategy = list(res.x)
         return self.br_suqr_strategy
+
+class ObservingStackelbergDefender(StackelbergDefender):
+
+    name = "obsta_def"
+    pattern = re.compile(r"^" + name + "\d*$")
+
+    def br_stackelberg(self):
+        if not self.br_stackelberg_strategy:
+            m = gurobipy.Model("SSG")
+            targets = list(range(len(self.game.values)))
+            strategy = []
+            for t in targets:
+                strategy.append(m.addVar(vtype=gurobipy.GRB.CONTINUOUS, name="x" + str(t)))
+            v = m.addVar(lb=-gurobipy.GRB.INFINITY, vtype=gurobipy.GRB.CONTINUOUS, name="v")
+            m.setObjective(v, gurobipy.GRB.MAXIMIZE)
+            for t in targets:
+                terms = [-self.game.values[t][self.id] * strategy[i] *
+                         int(i != t if i != t or not isinstance(self.game, game.GameWithObservabilities)
+                                    else 1 - self.game.observabilities.get(t))
+                         for i in targets]
+                m.addConstr(sum(terms) - v >= 0, "c" + str(t))
+            m.addConstr(sum(strategy) == 1, "c" + str(len(targets)))
+            m.params.outputflag = 0
+            m.optimize()
+            self.maxmin = v.x
+            self.br_stackelberg_strategy = [float(s.x) for s in strategy]
+        return self.br_stackelberg_strategy

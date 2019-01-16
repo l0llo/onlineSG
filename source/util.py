@@ -150,11 +150,33 @@ def gen_observabilities_with_len(length):
     else:
         observabilities = dict()
         for i in range(length):
-            o = round(np.random.uniform(0, 1), 3)
-            while o in observabilities or o < 0.5: #edit this to set desired threshold
-                o = round(np.random.uniform(0, 1), 3)
+            o = round(np.random.uniform(0.7, 1), 3) #edit first parameter of np.random.uniform to set minimum threshold
+            while o in observabilities:
+                o = round(np.random.uniform(0.7, 1), 3)
             observabilities[i] = o
         return observabilities
+
+def gen_observabilities_correlated_with_values(values):
+    if not isinstance(values, tuple):
+        print("Inserted values must be a tuple")
+    else:
+        observabilities = dict()
+        att_values =[v[1] for v in values]
+        max_v = max(att_values)
+        min_v = min(att_values)
+        quarter = (max_v - min_v) / 4
+        for i in range(len(values)):
+            if att_values[i] >= min_v + 3 * quarter:
+                o = round(np.random.uniform(0.75, 1), 3)
+            elif att_values[i] >= min_v + 2 * quarter:
+                o = round(np.random.uniform(0.5, 0.75), 3)
+            elif att_values[i] >= min_v + quarter:
+                o = round(np.random.uniform(0.25, 0.5), 3)
+            else:
+                o = round(np.random.uniform(0, 0.25), 3)
+            observabilities[i] = o
+        return observabilities
+
 
 def gen_pdict(g, prof_list):
     import source.players.attackers as atk

@@ -525,47 +525,6 @@ class ObservingStackelbergAttacker(player.ObservingAttacker, StackelbergAttacker
                         1: self.compute_strategy(strategy=strategy_vec)}
             return player.ObservingAttacker.exp_loss(self, str_dict)
 
-    def best_respond(self, strategies):
-
-        if not isinstance(strategies, dict):
-            strategies = {0: strategies}
-
-        targets = range(len(self.game.values))
-
-        # compute total probability of being covered for each target (c[t])
-        defenders_strategies = [np.array(strategies[d])
-                                for d in self.game.defenders]
-
-        # (sum the probabilities of differents defenders)
-        not_norm_coverage = sum(defenders_strategies)
-
-        # normalize
-        coverage = not_norm_coverage / np.linalg.norm(not_norm_coverage,
-                                                      ord=1)
-
-        # compute the expected value of each target (v[t]*(1-o[t]*c[t]))
-        values = np.array([self.game.values[t][self.id] for t in targets])
-        if isinstance(self.game, game.GameWithObservabilities):
-            expected_payoffs = [values[t] * (1 - coverage[t] * self.game.observabilities.get(t)) for t in targets]
-        else:
-            expected_payoffs = values * (np.ones(len(targets)) - coverage)
-        expected_payoffs = [round(v, 3) for v in expected_payoffs]
-
-        # play the argmax
-        ordered_targets = sorted(targets,
-                                 key=lambda t: expected_payoffs[t],
-                                 reverse=True)[:]
-        selected_targets = ordered_targets[:self.resources - 1]
-        last_max = max([expected_payoffs[t] for t in targets
-                        if t not in selected_targets])
-        max_indexes = [i for i in targets if expected_payoffs[i] == last_max]
-        # select the target which is the BEST for the defender (convention)
-        # only 1st defender is taken into account
-        d = self.game.defenders[0]
-        best_for_defender = max(max_indexes, key=lambda x: -self.game.values[x][d])
-        selected_targets.append(best_for_defender)
-        return [int(t in selected_targets) for t in targets]
-
         def best_response(self, **kwargs):
             if not self.last_br:
                 A_ub = []
