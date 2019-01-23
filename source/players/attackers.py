@@ -503,14 +503,7 @@ class USUQR(SUQR):
         else:
             return self.__class__.name
 
-class ObservingStackelbergAttacker(player.ObservingAttacker, StackelbergAttacker):
-    """
-    This attacker takes into account the defender strategy as the Stackelberg does,
-    but also the observation probabilities of the targets.
-    """
-
-    name = "obsta"
-    pattern = re.compile(r"^" + name + "\d*$")
+class ObservingStrategyAwareAttacker(player.ObservingAttacker):
 
     def exp_loss(self, strategy_vec, **kwargs):
         """
@@ -519,37 +512,69 @@ class ObservingStackelbergAttacker(player.ObservingAttacker, StackelbergAttacker
         if isinstance(strategy_vec, dict):
             # logger.debug(str(strategy_vec) + " " + str(type(strategy_vec)))
             # only for testing purposes
-            return player.ObservingAttacker.exp_loss(self, strategy_vec, **kwargs)
+            return super().exp_loss(strategy_vec, **kwargs)
         else:
             str_dict = {0: strategy_vec,
                         1: self.compute_strategy(strategy=strategy_vec)}
-            return player.ObservingAttacker.exp_loss(self, str_dict)
+            return super().exp_loss(str_dict)
 
-        def best_response(self, **kwargs):
-            if not self.last_br:
-                A_ub = []
-                for t in self.M:
-                    terms = [self.game.values[t][self.id] * int(i != t if i != t or not isinstance(self.game, game.GameWithObservabilities)
-                                                                       else 1 - self.game.observabilities.get(t))
-                             for i in self.M]
-                    terms += [1]
-                    A_ub.append(terms)
-                b_ub = [0 for i in range(len(A_ub))]
-                A_eq = [[1 for i in self.M] + [0]]
-                b_eq = [1]
-                bounds = [(0, 1) for i in self.M] + [(None, None)]
-                scipy_sol = list(scipy.optimize.linprog([0 for i in self.M] + [-1],
-                                                        A_ub=np.array(A_ub),
-                                                        b_ub=np.array(b_ub),
-                                                        A_eq=np.array(A_eq),
-                                                        b_eq=np.array(b_eq),
-                                                        bounds=bounds,
-                                                        method='simplex').x)
+    def opt_loss(self, **kwargs):
+        """
+        kwargs in this case are useful only for learner/unknown parameters
+        attackers
 
-                self.last_br, self.last_ol = scipy_sol[:-1], -scipy_sol[-1]
-            return self.last_br
+        """
+        if not kwargs and self.last_ol is not None:
+            return self.last_ol
+        else:
+            d_strat = self.best_response(**kwargs)
+            kwargs['strategy'] = d_strat
+            a_strat = self.compute_strategy(**kwargs)
+            s = {0: d_strat,
+                 1: a_strat}
+            self.last_ol = self.exp_loss(s)
+            return self.last_ol
 
-class ObservingSUQR(player.ObservingAttacker, SUQR):
+class ObservingStackelbergAttacker(ObservingStrategyAwareAttacker):
+    """
+    This attacker takes into account the defender strategy as the Stackelberg does,
+    but also the observation probabilities of the targets.
+    """
+
+    name = "obsta"
+    pattern = re.compile(r"^" + name + "\d*$")
+
+    def compute_strategy(self, strategy=None, **kwargs):
+        if strategy is None:
+            return self.best_respond(self.game.strategy_history[-1])
+        else:
+            return self.best_respond(strategy)
+
+    def best_response(self, **kwargs):
+        if not self.last_br:
+            A_ub = []
+            for t in self.M:
+                terms = [self.game.values[t][self.id] * int(i != t if i != t or not isinstance(self.game, game.GameWithObservabilities)
+                                                                   else 1 - self.game.observabilities.get(t))
+                         for i in self.M]
+                terms += [1]
+                A_ub.append(terms)
+            b_ub = [0 for i in range(len(A_ub))]
+            A_eq = [[1 for i in self.M] + [0]]
+            b_eq = [1]
+            bounds = [(0, 1) for i in self.M] + [(None, None)]
+            scipy_sol = list(scipy.optimize.linprog([0 for i in self.M] + [-1],
+                                                    A_ub=np.array(A_ub),
+                                                    b_ub=np.array(b_ub),
+                                                    A_eq=np.array(A_eq),
+                                                    b_eq=np.array(b_eq),
+                                                    bounds=bounds,
+                                                    method='simplex').x)
+
+            self.last_br, self.last_ol = scipy_sol[:-1], -scipy_sol[-1]
+        return self.last_br
+
+class ObservingSUQR(ObservingStrategyAwareAttacker):
 
     name = "obsuqr"
     pattern = re.compile(r"^" + name + r"(\d+(-\d+(\.\d+)?){2})?$")
@@ -566,18 +591,12 @@ class ObservingSUQR(player.ObservingAttacker, SUQR):
                  else:
                      self.w3 = w3
 
-    def exp_loss(self, strategy_vec, **kwargs):
-        """
-        exp loss for a strategy aware attacker
-        """
-        if isinstance(strategy_vec, dict):
-            # logger.debug(str(strategy_vec) + " " + str(type(strategy_vec)))
-            # only for testing purposes
-            return player.ObservingAttacker.exp_loss(self, strategy_vec, **kwargs)
+    def compute_strategy(self, strategy=None, **kwargs):
+        if strategy is None:
+            x = self.game.strategy_history[-1][0]
+            return self.qr(x)
         else:
-            str_dict = {0: strategy_vec,
-                        1: self.compute_strategy(strategy=strategy_vec)}
-            return player.ObservingAttacker.exp_loss(self, str_dict)
+            return self.qr(strategy)
 
     def qr(self, x, a=None, b=None, c=None):
         if self._use_memory:
@@ -610,3 +629,20 @@ class ObservingSUQR(player.ObservingAttacker, SUQR):
         if self._use_memory:
             self.memory[tuple(x)] = list(q)
         return list(q)
+
+        def best_response(self, **kwargs):
+            if self.last_br is None:
+                def fun(x):
+                    return self.exp_loss(x)
+                targets = list(range((len(self.game.values))))
+                bnds = tuple([(0, 1) for t in targets])
+                cons = ({'type': 'eq', 'fun': lambda x: sum(x) - 1})
+                res = scipy.optimize.minimize(fun, util.gen_distr(len(targets)),
+                                              method='SLSQP', bounds=bnds,
+                                              constraints=cons, tol=0.000001)
+                self.last_br = list(res.x)
+            return self.last_br
+
+        def __str__(self):
+            return "-".join([super().__str__()] +
+                            [str(self.w1), str(self.w2), str(self.w3)])
