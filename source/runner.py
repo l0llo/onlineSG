@@ -15,6 +15,7 @@ import numpy as np
 import concurrent.futures
 import logging
 import time
+import source.game as game
 
 
 AbortedExperiment = namedtuple('AbortedExperiment', ['error', 'info', 'seed'])
@@ -320,7 +321,10 @@ class Experiment:
         while(not self.game.is_finished()):
             i += 1
             logger.debug(str(i))
-            self.run_interaction()
+            if isinstance(self.game, game.GameWithObservabilities):
+                self.run_interaction_with_observations()
+            else:
+                self.run_interaction()
         self.run_time = time.time() - start_time
 
     def save_results(self, folder):

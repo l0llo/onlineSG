@@ -70,12 +70,18 @@ class Parser:
         values = [self.df[str(t)].iloc[index]
                   for t in self.targets_headers]
         observabilities = dict()
+        check_values = 0
         for o in self.observability_headers:
             try:
-                obs = round(float(self.df[o].iloc[index]), 3)
-                observabilities[int(o[3:])] = obs if 0 <= obs <= 1 else 1.0
+                    obs = round(float(self.df[o].iloc[index]), 3)
+                    if 0 <= obs <= 1:
+                        observabilities[int(o[3:])] = obs
+                    else:
+                        raise ValueError
             except ValueError:
                 observabilities[int(o[3:])] = 1.0
+        if all([observabilities.get(int(o[3:])) == 1.0 for o in self.observability_headers]): # No need to use observabilities if all = 1
+            observabilities = None
         name = self.df["Name"].iloc[index]
         time_horizon = int(self.df["T"].iloc[index])
         player_number = len(attacker_types) + len(defender_types)

@@ -157,8 +157,11 @@ class ExpertDefender(player.Defender):
                   self.game.strategy_history[-1][self.id]):
                 a = e.sample_strategy()
                 moves[0] = a
-            observations = copy(self.game.observation_history[-1])
-            current_reward = sum(self.game.get_player_payoffs(0, moves, observations))
+            if isinstance(self.game, GameWithObservabilities):
+                observations = copy(self.game.observation_history[-1])
+                current_reward = sum(self.game.get_player_payoffs(0, moves, observations))
+            else:
+                current_reward = sum(self.game.get_player_payoffs(0, moves))
             self.avg_rewards[e] = ((self.avg_rewards[e] * (self.tau() - 1) +
                                     current_reward) / self.tau())
 
@@ -243,8 +246,11 @@ class MABDefender(ExpertDefender):
     def learn(self):
         e = self.sel_arm
         moves = copy(self.game.history[-1])
-        observations = copy(self.game.observation_history[-1])
-        current_reward = sum(self.game.get_player_payoffs(0, moves, observations))
+        if isinstance(self.game, GameWithObservabilities):
+            observations = copy(self.game.observation_history[-1])
+            current_reward = sum(self.game.get_player_payoffs(0, moves, observations))
+        else:
+            current_reward = sum(self.game.get_player_payoffs(0, moves))
         self.avg_rewards[e] = ((self.avg_rewards[e] * max(self.weight[e], 1) +
                                 current_reward) / (self.weight[e] + 1))
         self.weight[e] += 1

@@ -229,7 +229,8 @@ class GameWithObservabilities(Game):
         of moves. Each move is a tuple of target indexes
         """
         if observations is not None:
-            covered_targets = set(t for d in self.defenders for t in [x[0] for x in observations if x[1]])
+            observed_targets = [k for k, v in observations.items() if v]
+            covered_targets = set(t for d in self.defenders for t in list(set(moves[d]) & set(observed_targets)))
         else:
             covered_targets = set(t for d in self.defenders for t in moves[d])
 
@@ -265,11 +266,17 @@ class GameWithObservabilities(Game):
         """
         Samples observations for the moves made in a turn, according to the observabilities of the corresponding targets
         """
-        observations = [(a, np.random.choice(2, p=[self.observabilities.get(a), 1 - self.observabilities.get(a)])) for a in moves]
-        self.observation_history.append(dict())
-        self.observation_history[-1] = observations
+        observations = dict()
+        for a in moves:
+            observations[a] = np.random.choice(2, p=[1 - self.observabilities.get(a), self.observabilities.get(a)])
+        self.observation_history.append(observations)
 
-
+    def zs_game(values, time_horizon):
+        """
+        returns a zero sum game given the target values in **values**
+        """
+        payoffs = tuple((v, v) for v in values)
+        return GameWithObservabilities(payoffs, time_horizon)
 
 class AutoJSONEncoder(JSONEncoder):
     def default(self, obj):

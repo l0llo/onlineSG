@@ -1,0 +1,5 @@
+Name,T,0,1,2,3,4,Defender,Attacker,Profile,Obs0,Obs1,Obs2,Obs3,Obs4
+sta_def_vs_2,1000,5,3,8,4,9,sta_def,sta1,sta1
+sta_def1_vs_2,1000,5,3,8,4,9,sta_def1,sta1,sta1,0.359,0.054,0.99,0.058,0.945
+sta_def2_vs_2,1000,5,3,8,4,9,sta_def2,obsta1,obsta1,0.359,0.054,0.99,0.058,0.945
+obsta_def_vs_2,1000,5,3,8,4,9,obsta_def,obsta1,obsta1,0.359,0.054,0.99,0.058,0.945
