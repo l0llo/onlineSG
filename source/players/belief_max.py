@@ -30,3 +30,8 @@ class FB(player.Defender):
 
     def learn(self):
         self.belief.update()
+        if all([p is None for p in self.belief.loglk.values()]):
+            self.belief.loglk = {p: 0 for p in self.A}
+
+#    def learn(self):
+#        self.belief.update()

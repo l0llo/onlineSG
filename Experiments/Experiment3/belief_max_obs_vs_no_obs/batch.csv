@@ -1,4 +1,4 @@
 Name,T,0,1,2,3,4,Defender,Attacker,Profile,Obs0,Obs1,Obs2,Obs3,Obs4
 FB1_vs_sta1_no_obs,1000,5,3,8,4,9,FB1,sta1,sta1
 FB1_vs_sta1_obs,1000,5,3,8,4,9,FB1,sta1,sta1,0.95,0.95,0.75,0.95,0.95
-FB1_vs_obsta1_obs,1000,5,3,8,4,9,FB1,obsta1,obsta1,0.95,0.95,0.75,0.95,0.95
+FB1_vs_obsta1_obs,1000,5,3,8,4,9,FB1,obsta1,sta1,0.95,0.95,0.75,0.95,0.95

@@ -425,11 +425,10 @@ class ObservingStackelbergDefender(StackelbergDefender):
             v = m.addVar(lb=-gurobipy.GRB.INFINITY, vtype=gurobipy.GRB.CONTINUOUS, name="v")
             m.setObjective(v, gurobipy.GRB.MAXIMIZE)
             for t in targets:
-                terms = [-self.game.values[t][self.id] * strategy[i] *
-                         int(i != t if i != t or not isinstance(self.game, game.GameWithObservabilities)
-                                    else 1 - self.game.observabilities.get(t))
-                         for i in targets]
-                m.addConstr(sum(terms) - v >= 0, "c" + str(t))
+                terms = [-self.game.values[t][self.id] * strategy[i]
+                         for i in targets if i != t]
+                m.addConstr(sum(terms) - v >= self.game.values[t][self.id] * strategy[t] *
+                            (1 - self.game.observabilities.get(t)), "c" + str(t))
             m.addConstr(sum(strategy) == 1, "c" + str(len(targets)))
             m.params.outputflag = 0
             m.optimize()

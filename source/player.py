@@ -327,7 +327,10 @@ class Attacker(Player):
     def loglk(self, old_loglk):
         if old_loglk is None:
             return None
-        o = self.game.history[-1][1][0]
+        elif isinstance(self.game, game.GameWithObservabilities) and self.game.dummy_target[-1] == 1:
+            o = self.game.perceived_target[-1]
+        else:
+            o = self.game.history[-1][1][0]
         lkl = self.last_strategy[o]
         if lkl == 0:
             return None
@@ -335,6 +338,21 @@ class Attacker(Player):
             new_l = log(lkl)
             return ((old_loglk * max(self.tau() - 1, 0) + new_l) /
                     max(self.tau(), 1))
+
+#    def loglk(self, old_loglk):
+#        if old_loglk is None:
+#            return None
+#        if not isinstance(self.game, game.GameWithObservabilities) or self.game.dummy_target[-1] == 0:
+#            o = self.game.history[-1][1][0]
+#            lkl = self.last_strategy[o]
+#        else:
+#            lkl = 0
+#        if lkl == 0:
+#            return None
+#        else:
+#            new_l = log(lkl)
+#            return ((old_loglk * max(self.tau() - 1, 0) + new_l) /
+#                    max(self.tau(), 1))
 
     def hloglk(self, old_loglk, hdict,
                history, ds_history):

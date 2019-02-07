@@ -60,7 +60,11 @@ class Environment:
                          for t in self.game.history[-1][self.agent_id]}
             feedbacks['total'] = sum(feedbacks.values())
             return feedbacks
-
+        elif feedback_type == "perceived":
+            feedbacks = {t: payoffs[t] * self.game.observation_history[-1].get(t)
+                         for t in targets}
+            feedbacks['total'] = sum(feedbacks.values())
+            return feedbacks
 
 class RTEnvironment(Environment):
 
