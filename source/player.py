@@ -182,6 +182,11 @@ class Defender(Player):
         return [int(i == max_target) for i in targets]
 
     def br_to(self, a, **kwargs):
+        if isinstance(self.game, game.GameWithObservabilities):
+            try:
+                a.best_response_with_obs(**kwargs)
+            except:
+                a.best_response(**kwargs)
         return a.best_response(**kwargs)
 
 
@@ -287,14 +292,45 @@ class Attacker(Player):
         selected_targets.append(np.random.choice(max_indexes))
         return [int(t in selected_targets) for t in targets]
 
+#    def exp_loss(self, strategy_vec, **kwargs):
+#        if isinstance(strategy_vec, dict):
+#            return -sum([s_d *
+#                         sum([s_a * sum(self.game.
+#                                        get_player_payoffs(0, {0: [i], 1:[j]}))
+#                              for j, s_a in enumerate(strategy_vec[1])
+#                              if j != i])
+#                         for i, s_d in enumerate(strategy_vec[0])])
+#        else:
+#            return self.exp_loss({0: strategy_vec,
+#                                  1: self.compute_strategy(**kwargs)})
+
+
     def exp_loss(self, strategy_vec, **kwargs):
         if isinstance(strategy_vec, dict):
-            return -sum([s_d *
-                         sum([s_a * sum(self.game.
-                                        get_player_payoffs(0, {0: [i], 1:[j]}))
-                              for j, s_a in enumerate(strategy_vec[1])
-                              if j != i])
-                         for i, s_d in enumerate(strategy_vec[0])])
+            if isinstance(self.game, game.GameWithObservabilities):
+                return -sum([s_d *
+                            sum([s_a * (sum(self.game.
+                                            get_player_payoffs(0, {0: [i], 1:[j]}))
+                                        if j != i else \
+                                             -(self.game.values[i][self.id] * \
+                                              (1 - self.game.observabilities.get(i))))
+                                for j, s_a in enumerate(strategy_vec[1])
+                                ])
+                            for i, s_d in enumerate(strategy_vec[0])])
+                exp_loss = 0
+                for i, s_d in enumerate(strategy_vec[0]):
+                    for j, s_a in enumerate(strategy_vec[1]):
+                        guard = 1 if j != i else 1 - self.game.observabilities.get(i)
+                        payoffs = self.game.get_player_payoffs(0, {0: [i], 1:[j]})
+                        exp_loss -= s_d * s_a * payoffs[j] * guard
+                return exp_loss
+            else:
+                return -sum([s_d *
+                             sum([s_a * sum(self.game.
+                                            get_player_payoffs(0, {0: [i], 1:[j]}))
+                                  for j, s_a in enumerate(strategy_vec[1])
+                                  if j != i])
+                             for i, s_d in enumerate(strategy_vec[0])])
         else:
             return self.exp_loss({0: strategy_vec,
                                   1: self.compute_strategy(**kwargs)})
@@ -324,35 +360,35 @@ class Attacker(Player):
             self.last_ol = self.exp_loss(s)
             return self.last_ol
 
-    def loglk(self, old_loglk):
-        if old_loglk is None:
-            return None
-        elif isinstance(self.game, game.GameWithObservabilities) and self.game.dummy_target[-1] == 1:
-            o = self.game.perceived_target[-1]
-        else:
-            o = self.game.history[-1][1][0]
-        lkl = self.last_strategy[o]
-        if lkl == 0:
-            return None
-        else:
-            new_l = log(lkl)
-            return ((old_loglk * max(self.tau() - 1, 0) + new_l) /
-                    max(self.tau(), 1))
-
 #    def loglk(self, old_loglk):
 #        if old_loglk is None:
 #            return None
-#        if not isinstance(self.game, game.GameWithObservabilities) or self.game.dummy_target[-1] == 0:
-#            o = self.game.history[-1][1][0]
-#            lkl = self.last_strategy[o]
+#        elif isinstance(self.game, game.GameWithObservabilities) and self.game.fake_target[-1] == 1:
+#            o = self.game.perceived_target[-1]
 #        else:
-#            lkl = 0
+#            o = self.game.history[-1][1][0]
+#        lkl = self.last_strategy[o]
 #        if lkl == 0:
 #            return None
 #        else:
 #            new_l = log(lkl)
 #            return ((old_loglk * max(self.tau() - 1, 0) + new_l) /
 #                    max(self.tau(), 1))
+
+    def loglk(self, old_loglk):
+        if old_loglk is None:
+            return None
+        if not isinstance(self.game, game.GameWithObservabilities) or self.game.fake_target[-1] == 0:
+            o = self.game.history[-1][1][0]
+            lkl = self.last_strategy[o]
+            if lkl == 0:
+                return None
+            else:
+                new_l = log(lkl)
+                return ((old_loglk * max(self.tau() - 1, 0) + new_l) /
+                        max(self.tau(), 1))
+        # if no feedback is received then beliefs are not updated
+        return(old_loglk)
 
     def hloglk(self, old_loglk, hdict,
                history, ds_history):
@@ -383,34 +419,6 @@ def sample(distribution, items_number):
     return [e for e in selected_indexes]
 
 class ObservingAttacker(Attacker):
-
-    def exp_loss(self, strategy_vec, **kwargs):
-        if isinstance(strategy_vec, dict):
-            return -sum([s_d *
-                         sum([s_a * sum(self.game.
-                                        get_player_payoffs(0, {0: [i], 1:[j]})) *
-                              (1 if j != i
-                                else 0 if not isinstance(self.game, game.GameWithObservabilities)
-                                else (1 - self.game.observabilities.get(i)))
-                               for j, s_a in enumerate(strategy_vec[1])
-                               ])
-                          for i, s_d in enumerate(strategy_vec[0])])
-        #    exp_loss = 0
-        #    k = 0
-        #    for i, s_d in enumerate(strategy_vec[0]):
-        #        for j, s_a in enumerate(strategy_vec[1]):
-        #            if j != i:
-        #                k = 1
-        #            elif not isinstance(self.game, game.GameWithObservabilities):
-        #                k = 0
-        #            else:
-        #                k = (1 - self.game.observabilities.get(i))
-        #                exp_loss = exp_loss - sum([s_d * sum ([s_a * sum(self.game. get_player_payoffs(0, {0: [i], 1:[j]})) * k])])
-        #                return exp_loss
-
-        else:
-            return self.exp_loss({0: strategy_vec,
-                                  1: self.compute_strategy(**kwargs)})
 
     def best_respond(self, strategies):
         if not isinstance(strategies, dict):

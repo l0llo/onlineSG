@@ -65,6 +65,8 @@ class Environment:
                          for t in targets}
             feedbacks['total'] = sum(feedbacks.values())
             return feedbacks
+        elif feedback_type == "MAB":
+            feedbacks = {t: payoffs[t] * (self.game.history[-1][self.agent_id] in self.game.history[-1][1] and self.game.history[-1][self.agent_id] == t) for t in targets}
 
 class RTEnvironment(Environment):
 

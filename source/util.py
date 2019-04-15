@@ -246,6 +246,9 @@ def print_adv(adv):
     if adv.__class__.name == attackers.StochasticAttacker.name:
         return (adv.__class__.name + str(adv.resources) +
                 print_dist(adv.distribution))
+    elif adv.__class__.name == attackers.SUQR.name:
+        return (adv.__class__.name + str(adv.resources) +
+                print_dist((adv.w1, adv.w2)))
     else:
         return adv.__class__.name + str(adv.resources)
 

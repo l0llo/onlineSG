@@ -28,10 +28,11 @@ class FB(player.Defender):
         p = max(valid_loglk.keys(), key=lambda x: valid_loglk[x])
         return self.br_to(p)
 
-    def learn(self):
-        self.belief.update()
-        if all([p is None for p in self.belief.loglk.values()]):
-            self.belief.loglk = {p: 0 for p in self.A}
-
 #    def learn(self):
 #        self.belief.update()
+#        #extreme case where all profiles have been eliminated, make a clean slate of what was learnt
+#        if all([p is None for p in self.belief.loglk.values()]):
+#            self.belief.loglk = {p: 0 for p in self.A}
+
+    def learn(self):
+        self.belief.update()

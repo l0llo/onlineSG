@@ -223,7 +223,7 @@ class GameWithObservabilities(Game):
         if type(observabilities) is dict:
             self.observabilities = observabilities
         self.observation_history = []
-        self.dummy_target = []
+        self.fake_target = []
         self.perceived_target = []
 
     def get_player_payoffs(self, player_index, moves, observations=None):
@@ -274,29 +274,29 @@ class GameWithObservabilities(Game):
             observations[t] = np.random.choice(2, p=[1 - self.observabilities.get(t), self.observabilities.get(t)])
         self.observation_history.append(observations)
 
-    def zs_game(values, time_horizon):
+    def zs_game_with_observabilities(values, time_horizon):
         """
         returns a zero sum game given the target values in **values**
         """
         payoffs = tuple((v, v) for v in values)
         return GameWithObservabilities(payoffs, time_horizon)
 
-    def set_dummy_target(self):
+    def set_fake_target(self):
         last_attacker_moves = self.history[-1].get(self.attackers[0])
         last_obs = self.observation_history[-1]
         if any([last_obs.get(m) != 0 for m in last_attacker_moves]):
-            self.dummy_target.append(0)
+            self.fake_target.append(0)
         else:
-            self.dummy_target.append(1)
-        return self.dummy_target[-1]
+            self.fake_target.append(1)
+        return self.fake_target[-1]
 
-    def set_perceived_target(self):
-        if self.dummy_target[-1] != 1:
-            perceived_target = "-"
-        else:
-            perceived_target = np.random.choice([t for t in self.observabilities.keys()
-                                                 if not self.observation_history[-1].get(t)])
-        self.perceived_target.append(perceived_target)
+#    def set_perceived_target(self):
+#        if self.fake_target[-1] != 1:
+#            perceived_target = "-"
+#        else:
+#            perceived_target = np.random.choice([t for t in self.observabilities.keys()
+#                                                 if not self.observation_history[-1].get(t)])
+#        self.perceived_target.append(perceived_target)
 
 #    def update_observabilities(self):
 #        for t in range(len(self.values)):

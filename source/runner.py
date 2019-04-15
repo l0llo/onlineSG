@@ -286,8 +286,8 @@ class Experiment:
         self.game.sample_observation()
         self.environment.observe_realization(realization)
         feedback = self.environment.feedback("perceived") #TODO: right now only working with ONE attacker with ONE resource
-        self.game.set_dummy_target()
-        self.game.set_perceived_target()
+        self.game.set_fake_target()
+        #self.game.set_perceived_target()
         self.agent.receive_feedback(feedback)
         self.update_stats()
 
@@ -342,8 +342,8 @@ class Experiment:
             df[key] = [f[t] for f in self.agent.feedbacks]
         df["total"] = [f['total'] for f in self.agent.feedbacks]
         if isinstance(self.game, game.GameWithObservabilities):
-            df["dummy_target"] = self.game.dummy_target
-            df["perceived_target"] = self.game.perceived_target
+            df["fake_target"] = self.game.fake_target
+            #df["perceived_target"] = self.game.perceived_target
         df["exp_loss"] = self.exp_loss
         df["actual_regret"] = self.actual_regret
         df["exp_regret"] = self.exp_regret
