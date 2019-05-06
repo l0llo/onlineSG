@@ -108,3 +108,10 @@ class InvArgError(OSG_Error):
 
 class TargetsAndObservabilitiesMismatchError(OSG_Error):
     pass
+
+class TargetsAndFeedbackProbabilitiesMismatchError(OSG_Error):
+    pass
+
+class MultipleUnknownProfilesError(OSG_Error):
+    def __str__(self):
+        return "Only one unknown profile allowed per configuration"

@@ -417,6 +417,9 @@ class BayesianUnknownStochasticAttacker(player.Attacker):
 #        m = min(self.M, key=lambda t: self.exp_loss(self.ps(t), **kwargs))
 #        return self.ps(m)
 
+    def loglk(self, old_loglk):
+        return None
+
 class SUQR(StrategyAwareAttacker):
 
     name = "suqr"

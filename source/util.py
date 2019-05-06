@@ -141,20 +141,20 @@ def gen_tar_with_len(length):
         len_s = len(s)
     return s
 
-def gen_observabilities_with_len(length):
+def gen_probabilities_with_len(length):
     """
     Just a simple function to randomly generate distinct observability probabilities
     """
     if length <= 0:
         print("Length must be positive!")
     else:
-        observabilities = dict()
+        probabilities = dict()
         for i in range(length):
-            o = round(np.random.uniform(0.7, 1), 3) #edit first parameter of np.random.uniform to set minimum threshold
-            while o in observabilities:
-                o = round(np.random.uniform(0.7, 1), 3)
-            observabilities[i] = o
-        return observabilities
+            p = round(np.random.uniform(0.7, 1), 3) #edit first parameter of np.random.uniform to set minimum threshold
+            while p in probabilities:
+                p = round(np.random.uniform(0.7, 1), 3)
+            probabilities[i] = p
+        return probabilities
 
 def gen_observabilities_correlated_with_values(values):
     if not isinstance(values, tuple):

@@ -47,7 +47,7 @@ class Environment:
         for p in self.game.profiles:
             p.receive_feedback()
 
-    def feedback(self, feedback_type):
+    def feedback(self, feedback_type, feedback_prob=None):
         targets = range(len(self.game.values))
         payoffs = self.game.get_last_turn_payoffs(self.agent_id)
         self.last_act_loss = -sum(payoffs)
@@ -60,13 +60,13 @@ class Environment:
                          for t in self.game.history[-1][self.agent_id]}
             feedbacks['total'] = sum(feedbacks.values())
             return feedbacks
-        elif feedback_type == "perceived":
-            feedbacks = {t: payoffs[t] * self.game.observation_history[-1].get(t)
+        elif feedback_type == "observed":
+            feedbacks = {t: payoffs[t] * self.game.observation_history[-1].get(t) * feedback_prob.get(t)
                          for t in targets}
             feedbacks['total'] = sum(feedbacks.values())
             return feedbacks
-        elif feedback_type == "MAB":
-            feedbacks = {t: payoffs[t] * (self.game.history[-1][self.agent_id] in self.game.history[-1][1] and self.game.history[-1][self.agent_id] == t) for t in targets}
+#        elif feedback_type == "MAB":
+#            feedbacks = {t: payoffs[t] * (self.game.history[-1][self.agent_id] in self.game.history[-1][1] and self.game.history[-1][self.agent_id] == t) for t in targets}
 
 class RTEnvironment(Environment):
 

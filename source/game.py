@@ -9,6 +9,7 @@ import json
 from json import JSONEncoder
 from copy import deepcopy
 import numpy as np
+import source.util as util
 
 
 class Game:
@@ -114,7 +115,7 @@ class Game:
             self.players[p.id] = p
             self.defenders.append(p.id)
         if len(self.values[0]) != len(self.players):
-            raise TuplesWrongLenghtError
+            raise TuplesWrongLenght
         np.random.shuffle(profiles)
         self.profiles = profiles
 
@@ -217,14 +218,25 @@ def load(game_file):
 
 class GameWithObservabilities(Game):
 
-    def __init__(self, payoffs, time_horizon, observabilities = None):
+    def __init__(self, payoffs, time_horizon, observabilities = None, feedback_prob = None, feedback_type = None):
         super().__init__(payoffs, time_horizon)
         self.observabilities = dict()
-        if type(observabilities) is dict:
+        if type(observabilities) is dict and observabilities:
             self.observabilities = observabilities
+        else:
+            self.observabilities = util.gen_probabilities_with_len(len(payoffs))
         self.observation_history = []
         self.fake_target = []
         self.perceived_target = []
+        self.feedback_prob = dict()
+        if type(feedback_prob) is dict and feedback_prob:
+            self.feedback_prob = feedback_prob
+        else:
+            self.feedback_prob = util.gen_probabilities_with_len(len(payoffs))
+        if feedback_type == "mab":
+            self.feedback_type = "mab"
+        else:
+            self.feedback_type = "full"
 
     def get_player_payoffs(self, player_index, moves, observations=None):
         """
@@ -265,6 +277,12 @@ class GameWithObservabilities(Game):
         else:
             self.observabilities = observabilities
 
+    def set_feedback_prob(self, feedback_prob):
+        if len(feedback_prob) != len(self.values):
+            print("Feedback probabilities and targets have different lengths")
+        else:
+            self.feedback_prob = feedback_prob
+
     def sample_observation(self):
         """
         Samples observations for the moves made in a turn, according to the observabilities of the corresponding targets
@@ -274,6 +292,16 @@ class GameWithObservabilities(Game):
             observations[t] = np.random.choice(2, p=[1 - self.observabilities.get(t), self.observabilities.get(t)])
         self.observation_history.append(observations)
 
+    def sample_feedback_prob(self):
+        feedback_prob = dict()
+        if self.feedback_type == "mab":
+            for t in range(len(self.values)):
+                feedback_prob[t] = 1 if t == self.history[-1][self.defenders[0]][0] else 0
+        else:
+            for t in range(len(self.values)):
+                feedback_prob[t] = np.random.choice(2, p=[1 - self.feedback_prob.get(t), self.feedback_prob.get(t)])
+        return feedback_prob
+
     def zs_game_with_observabilities(values, time_horizon):
         """
         returns a zero sum game given the target values in **values**
@@ -281,14 +309,13 @@ class GameWithObservabilities(Game):
         payoffs = tuple((v, v) for v in values)
         return GameWithObservabilities(payoffs, time_horizon)
 
-    def set_fake_target(self):
+    def set_fake_target(self, feedback_prob):
         last_attacker_moves = self.history[-1].get(self.attackers[0])
-        last_obs = self.observation_history[-1]
-        if any([last_obs.get(m) != 0 for m in last_attacker_moves]):
+        if any([feedback_prob.get(m) != 0 for m in last_attacker_moves]):
             self.fake_target.append(0)
         else:
             self.fake_target.append(1)
-        return self.fake_target[-1]
+#        return self.fake_target[-1]
 
 #    def set_perceived_target(self):
 #        if self.fake_target[-1] != 1:

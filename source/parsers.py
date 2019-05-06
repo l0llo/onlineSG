@@ -33,7 +33,10 @@ class Parser:
         self.defenders_headers = []
         self.profile_headers = []
         self.observability_headers = []
+        self.feedback_prob_headers = []
+        self.feed_type_header = None
         observability_pattern = re.compile(r'Obs(\d)+$')
+        feedback_prob_pattern = re.compile(r'Feed_prob(\d)+$')
         for h in self.df.columns:
             try:
                 self.targets_headers.append(int(h))
@@ -46,12 +49,20 @@ class Parser:
                     self.profile_headers.append(h)
                 elif observability_pattern.match(h):
                     self.observability_headers.append(h)
+                elif feedback_prob_pattern.match(h):
+                    self.feedback_prob_headers.append(h)
+                elif h == "Feed_type":
+                    self.feed_type_header = h
                 elif h != "T" and h != "Name":
                     raise UnknownHeaderError
         observability_targets = [int(o[3:]) for o in self.observability_headers]
+        feedback_prob_targets = [int(fp[9:]) for fp in self.feedback_prob_headers]
         if (observability_targets and
             collections.Counter(self.targets_headers) != collections.Counter(observability_targets)):
            raise TargetsAndObservabilitiesMismatchError
+        if (feedback_prob_targets and
+            collections.Counter(self.targets_headers) != collections.Counter(feedback_prob_targets)):
+           raise TargetsAndFeedbackProbabilitiesMismatchError
 
     def parse_row(self, index):
         """
@@ -72,26 +83,40 @@ class Parser:
         values = [self.df[str(t)].iloc[index]
                   for t in self.targets_headers]
         observabilities = dict()
-        check_values = 0
+        feedback_prob = dict()
+        feedback_type = str(self.df[self.feed_type_header].iloc[index]).lower()
         for o in self.observability_headers:
             try:
-                    obs = round(float(self.df[o].iloc[index]), 3)
-                    if 0 <= obs <= 1:
-                        observabilities[int(o[3:])] = obs
-                    else:
-                        raise ValueError
+                obs = round(float(self.df[o].iloc[index]), 3)
+                if 0 <= obs <= 1:
+                    observabilities[int(o[3:])] = obs
+                else:
+                    raise ValueError
             except ValueError:
                 observabilities[int(o[3:])] = 1.0
-        if all([observabilities.get(int(o[3:])) == 1.0 for o in self.observability_headers]): # No need to use observabilities if all = 1
-            observabilities = None
+        for fp in self.feedback_prob_headers:
+            try:
+                feed_prob = round(float(self.df[fp].iloc[index]), 3)
+                if 0 <= feed_prob <= 1:
+                    feedback_prob[int(fp[9:])] = feed_prob
+                else:
+                    raise ValueError
+            except ValueError:
+                feedback_prob[int(fp[9:])] = 1.0
+#        observabilities = check_probability(self.observability_headers, self.df, index)
+#        feedback_prob = check_probability(self.feedback_prob_headers, self.df, index)
         name = self.df["Name"].iloc[index]
         time_horizon = int(self.df["T"].iloc[index])
         player_number = len(attacker_types) + len(defender_types)
         try:
-            if not observabilities:
+            if (not self.observability_headers or \
+                all([observabilities.get(int(o[3:])) == 1.0 for o in self.observability_headers])) and \
+               (not self.feedback_prob_headers or \
+                all([feedback_prob.get(int(fp[9:])) == 1.0 for fp in self.feedback_prob_headers])) and \
+               (not feedback_type or feedback_type != "mab"):
                 game = parse_game(values, player_number, time_horizon)
             else:
-                game = parse_gamewithobservabilities(values, player_number, time_horizon, observabilities)
+                game = parse_gamewithobservabilities(values, player_number, time_horizon, observabilities, feedback_prob, feedback_type)
             defenders_ids = [parse_player(d, game, j)
                              for (j, d) in enumerate(defender_types)]
             attacker_ids = [parse_player(a, game, i + len(defenders_ids))
@@ -104,6 +129,18 @@ class Parser:
                 TuplesWrongLenghtError) as e:
             raise RowError from e
 
+#    def check_probability(probability_headers, df, index):
+#        probability = dict()
+#        for p in probability_headers:
+#            try:
+#                    prob = round(float(df[p].iloc[index]), 3)
+#                    if 0 <= prob <= 1:
+#                        probability[int(p[3:])] = prob
+#                    else:
+#                        raise ValueError
+#            except ValueError:
+#                probability[int(p[3:])] = 1.0
+#        return probability
 
 def parse_player(player_type, game, id):
     """
@@ -147,7 +184,7 @@ def parse_game(values, player_number, time_horizon):
             raise UnparsableGameError(values) from e
     raise UnparsableGameError(values)
 
-def parse_gamewithobservabilities(values, player_number, time_horizon, observabilities):
+def parse_gamewithobservabilities(values, player_number, time_horizon, observabilities, feed_prob, feed_type):
     """
     similar to the parse_game method, this method also tries to parse
     the observabilities of the game and then returns a game with
@@ -162,7 +199,7 @@ def parse_gamewithobservabilities(values, player_number, time_horizon, observabi
         try:
             parsed_values = c.parse_value(values, player_number)
             if parsed_values:
-                return c(parsed_values, time_horizon, observabilities)
+                return c(parsed_values, time_horizon, observabilities, feed_prob, feed_type)
         except NonHomogeneousTuplesError as e:
             raise UnparsableGameError(values) from e
     raise UnparsableGameError(values)
