@@ -12,7 +12,8 @@ import collections
 import source.players.base_defenders as bd
 import source.players.defenders as defenders
 import source.players.dmd as dmd
-import source.players.bayesian as bd
+import source.players.bayesian as baydef
+import source.bayesian_approximator as bayapp
 
 
 class Parser:
@@ -156,7 +157,8 @@ def parse_player(player_type, game, id):
                            get_classes(bm),
                            get_classes(fr),
                            get_classes(dmd),
-                           get_classes(bd)], [])
+                           get_classes(baydef),
+                           get_classes(bayapp)], [])
     for c in players_classes:
         parsed = c.parse(player_type, game, id)
         if parsed:

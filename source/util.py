@@ -156,6 +156,12 @@ def gen_probabilities_with_len(length):
             probabilities[i] = p
         return probabilities
 
+def sample_probability(probabilities):
+    sample = dict()
+    for t in range(len(probabilities)):
+        sample[t] = np.random.choice(2, p=[1 - probabilities.get(t), probabilities.get(t)])
+    return sample
+
 def gen_observabilities_correlated_with_values(values):
     if not isinstance(values, tuple):
         print("Inserted values must be a tuple")
@@ -331,3 +337,17 @@ def norm_min(v, m=0.01):
     c = (1 - (len(v) - len(gr)) * m) / n1
     v1 = [x * c if i in gr else m for i, x in enumerate(v)]
     return v1
+
+
+
+def two_largest_diff(numbers):
+    count = 0
+    max1 = max2 = float('-inf')
+    for x in numbers:
+        count += 1
+        if x > max2:
+            if x >= max1:
+                max1, max2 = x, max1
+            else:
+                max2 = x
+    return abs(max1 - max2) if count >= 2 else float('+inf')

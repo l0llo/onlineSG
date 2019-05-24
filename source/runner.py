@@ -72,7 +72,7 @@ class Batch:
                                                                 traceback.format_exc(),
                                                                 row))
             except Exception as e:
-                print("Something unexpected is happened in configuration ",
+                print("Something unexpected has happened in configuration ",
                       row, ": ", e)
                 self.configurations.append(AbortedConfiguration(e,
                                                                 traceback.format_exc(),

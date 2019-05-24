@@ -288,8 +288,7 @@ class GameWithObservabilities(Game):
         Samples observations for the moves made in a turn, according to the observabilities of the corresponding targets
         """
         observations = dict()
-        for t in range(len(self.values)):
-            observations[t] = np.random.choice(2, p=[1 - self.observabilities.get(t), self.observabilities.get(t)])
+        observations = util.sample_probability(self.observabilities)
         self.observation_history.append(observations)
 
     def sample_feedback_prob(self):
@@ -298,8 +297,7 @@ class GameWithObservabilities(Game):
             for t in range(len(self.values)):
                 feedback_prob[t] = 1 if t == self.history[-1][self.defenders[0]][0] else 0
         else:
-            for t in range(len(self.values)):
-                feedback_prob[t] = np.random.choice(2, p=[1 - self.feedback_prob.get(t), self.feedback_prob.get(t)])
+            feedback_prob = util.sample_probability(self.feedback_prob)
         return feedback_prob
 
     def zs_game_with_observabilities(values, time_horizon):
