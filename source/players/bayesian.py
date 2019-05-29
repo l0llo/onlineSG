@@ -9,7 +9,7 @@ import source.belief
 import sys
 import source.errors as errors
 
-class BayesianDefender(fb.FB):
+class BD(fb.FB):
 
     name = "BD"
     pattern = re.compile(r"^" + name + r"\d(-\d)?$")
@@ -21,17 +21,23 @@ class BayesianDefender(fb.FB):
     def __init__(self, game, pl_id, resources=1):
         super().__init__(game, pl_id, resources)
 #        self.profiles = None
-        targets = range(len(self.game.values))
+        targets = range(len(game.values))
         self.dirichlet_alphas = {t: 0 for t in targets}
         self.epsilon = 0.5 # set this threshold to the tolerated belief/entropy
-        self.unknown_profile = [p for p in self.game.profiles if isinstance(p, attackers.BayesianUnknownStochasticAttacker)]
+        self.unknown_profile = []
+        self.known_profs = []
         if len(self.unknown_profile) > 1:
             raise errors.MultipleUnknownProfilesError()
 
     def finalize_init(self):
-        player.Defender.finalize_init()
-        known_prof = [p for p in self.game.profiles if not isinstance(p, attackers.BayesianUnknownStochasticAttacker)]
-        self.belief = source.belief.FrequentistBelief(known_prof)
+        player.Player.finalize_init(self)
+        for p in self.game.profiles:
+            if isinstance(p, attackers.BayesianUnknownStochasticAttacker):
+                self.unknown_profile.append(p)
+            else:
+                self.known_profs.append(p)
+#        known_prof = [p for p in self.game.profiles if not isinstance(p, attackers.BayesianUnknownStochasticAttacker)]
+        self.belief = source.belief.FrequentistBelief(self.known_profs)
 
 #    def finalize_init(self):
 #        super().finalize_init()
@@ -62,15 +68,18 @@ class BayesianDefender(fb.FB):
 #            return self.br_to(unknown_params_profile)
 
     def compute_strategy(self):
-        valid_loglk = {p: self.belief.loglk[p] for p in self.A
+        valid_loglk = {p: self.belief.loglk[p] for p in self.known_profs
                        if self.belief.loglk[p] is not None}
-        p = max(valid_loglk.keys(), key=lambda x: valid_loglk[x])
-        if valid_loglk[p] >= self.epsilon:
-            return self.br_to(p)
-        else:
-            return self.br_to(unknown_profile[0])
+        if valid_loglk:
+            p = max(valid_loglk.keys(), key=lambda x: valid_loglk[x])
+            if valid_loglk[p] >= self.epsilon:
+                return self.br_to(p)
+        return self.br_to(self.unknown_profile[0])
 
     def learn(self):
-        super.learn()
+        self.belief.update()
         o = self.game.history[-1][1][0]
         self.dirichlet_alphas[o] += 1
+        pk = list(self.dirichlet_alphas.values())
+        norm_pk = [float(i)/sum(pk) for i in pk]
+        self.unknown_profile[0].set_weights(norm_pk)

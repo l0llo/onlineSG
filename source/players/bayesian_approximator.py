@@ -20,7 +20,7 @@ class BA(player.Defender):
 
     def __init__(self, game, pl_id, resources=1):
         super().__init__(game, pl_id, resources)
-        self.are_beliefs_all_zero = 1
+        self.observed_something = 0
         self.estimated_prob = dict()
 
     def finalize_init(self):
@@ -29,7 +29,7 @@ class BA(player.Defender):
             self.estimated_prob[t] = [0, 0]
 
     def compute_strategy(self):
-        if self.are_beliefs_all_zero:
+        if not self.observed_something:
             #in the beginning play uniform strategy (default for player class)
             return super().compute_strategy()
         else:
@@ -38,16 +38,15 @@ class BA(player.Defender):
                            for p in self.estimated_prob.keys() if
                            self.estimated_prob[p][0] > 0}
             valid_keys = [int(k) for k in valid_probs.keys()]
-            valid_probs_values = [float(x) for x in valid_probs.values()]
+#            valid_probs_values = [float(x) for x in valid_probs.values()]
             min_ent = sys.float_info.max
             min_ent_prof = None
-            dist_len = len(valid_keys)
             for prof in self.game.profiles:
                 prof_strat = prof.compute_strategy()
-                valid_prof_strat = [prof_strat[t] for t in valid_keys]
-                entropy = sum([valid_prof_strat[i] *
-                               log(valid_prof_strat[i]/valid_probs_values[i])
-                               for i in range(dist_len)])
+#                valid_prof_strat = [prof_strat[t] for t in valid_keys]
+                entropy = sum([prof_strat[k] *
+                               log(prof_strat[k] / valid_probs[k])
+                               for k in valid_keys])
                 if entropy < min_ent:
                     min_ent = entropy
                     min_ent_prof = prof
@@ -60,6 +59,5 @@ class BA(player.Defender):
         if not self.game.fake_target[-1]:
             #increase numerator if observed
             self.estimated_prob[self.game.history[-1][0][0]][0] += 1
-        if self.are_beliefs_all_zero:
-            if any([p for p in self.belief.loglk.values()]):
-                self.are_beliefs_all_zero = 0
+            if not self.observed_something:
+                self.observed_something = 1

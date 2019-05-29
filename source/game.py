@@ -118,7 +118,7 @@ class Game:
             raise TuplesWrongLenght
         np.random.shuffle(profiles)
         self.profiles = profiles
-
+        
         for i in self.players:
             self.players[i].finalize_init()
 

@@ -381,14 +381,15 @@ class Attacker(Player):
         if not isinstance(self.game, game.GameWithObservabilities) or self.game.fake_target[-1] == 0:
             o = self.game.history[-1][1][0]
             lkl = self.last_strategy[o]
-            if lkl == 0:
-                return None
-            else:
-                new_l = log(lkl)
-                return ((old_loglk * max(self.tau() - 1, 0) + new_l) /
-                        max(self.tau(), 1))
-        # if no feedback is received then beliefs are not updated
-        return(old_loglk)
+        else:
+            # if no feedback is received then we compute belief that defended target was not attacked
+            def_target = self.game.history[-1][0][0]
+            lkl = 1 - self.last_strategy[def_target]
+        if lkl == 0:
+            return None
+        new_l = log(lkl)
+        return ((old_loglk * max(self.tau() - 1, 0) + new_l) /
+                max(self.tau(), 1))
 
     def hloglk(self, old_loglk, hdict,
                history, ds_history):

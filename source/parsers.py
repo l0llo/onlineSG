@@ -13,7 +13,8 @@ import source.players.base_defenders as bd
 import source.players.defenders as defenders
 import source.players.dmd as dmd
 import source.players.bayesian as baydef
-import source.bayesian_approximator as bayapp
+import source.players.bayesian_approximator as bayapp
+import source.players.partial_monitoring_forecaster as pmf
 
 
 class Parser:
@@ -85,7 +86,9 @@ class Parser:
                   for t in self.targets_headers]
         observabilities = dict()
         feedback_prob = dict()
-        feedback_type = str(self.df[self.feed_type_header].iloc[index]).lower()
+        feedback_type = None
+        if self.feed_type_header:
+            feedback_type = str(self.df[self.feed_type_header].iloc[index]).lower()
         for o in self.observability_headers:
             try:
                 obs = round(float(self.df[o].iloc[index]), 3)
@@ -158,7 +161,8 @@ def parse_player(player_type, game, id):
                            get_classes(fr),
                            get_classes(dmd),
                            get_classes(baydef),
-                           get_classes(bayapp)], [])
+                           get_classes(bayapp),
+                           get_classes(pmf)], [])
     for c in players_classes:
         parsed = c.parse(player_type, game, id)
         if parsed:
