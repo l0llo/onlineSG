@@ -12,7 +12,7 @@ import collections
 import source.players.base_defenders as bd
 import source.players.defenders as defenders
 import source.players.dmd as dmd
-import source.players.bayesian as baydef
+import source.players.frequentist as freqdef
 import source.players.bayesian_approximator as bayapp
 import source.players.partial_monitoring_forecaster as pmf
 
@@ -160,7 +160,7 @@ def parse_player(player_type, game, id):
                            get_classes(bm),
                            get_classes(fr),
                            get_classes(dmd),
-                           get_classes(baydef),
+                           get_classes(freqdef),
                            get_classes(bayapp),
                            get_classes(pmf)], [])
     for c in players_classes:

@@ -235,7 +235,7 @@ class StochasticAttacker(player.Attacker):
         else:
             self.distribution = list(distribution)
 
-    def compute_strategy(self, **kwargs):
+    def compute_strategy(self, strategy=None, **kwargs):
         return self.distribution
 
     # def init_br(self):
@@ -342,9 +342,9 @@ class UnknownStochasticAttacker(HistoryDependentAttacker):
     def get_attacker(self):
         return StochasticAttacker(self.game, 1)
 
-class BayesianUnknownStochasticAttacker(player.Attacker):
+class FrequentistUnknownStochasticAttacker(player.Attacker):
 
-    name = "busto"
+    name = "fusto"
     pattern = re.compile(r"^" + name + r"(\d+(-\d+(\.\d+)?)*)?$")
 
     @classmethod
@@ -374,23 +374,28 @@ class BayesianUnknownStochasticAttacker(player.Attacker):
         else:
             self.actual_distribution = list(distribution)
         num_t = len(self.game.values)
-        self.empirical_distribution = [1/num_t for t in range(num_t)]
+#        self.empirical_distribution = [1/num_t for t in range(num_t)]
+        self.weights = [0 for t in range(num_t)]
 
     def compute_strategy(self, **kwargs):
         return self.actual_distribution
 
     def compute_empirical_strategy(self, **kwargs):
-        return self.empirical_distribution
+#        return self.empirical_distribution
+        if sum(self.weights) == 0:
+            return self.uniform_strategy(len(self.game.values))
+        return [i/sum(self.weights) for i in self.weights]
 
-    def set_weights(self, weights):
-        if sum(weights) != 1:
-            norm = sum(weights)
-            self.empirical_distribution = [w/norm for w in weights]
-        self.empirical_distribution = weights
+    def set_weights(self, weight):
+#        if sum(weights) != 1:
+#            norm = sum(weights)
+#            self.empirical_distribution = [w/norm for w in weights]
+#        self.empirical_distribution = weights
+        self.weights[weight] += 1
 
     def __str__(self):
         return "-".join([super().__str__()] +
-                        [str(d) for d in self.distribution])
+                        [str(d) for d in self.actual_distribution])
 
     def exp_loss(self, strategy_vec, **kwargs):
         if isinstance(strategy_vec, dict):
@@ -418,7 +423,23 @@ class BayesianUnknownStochasticAttacker(player.Attacker):
 #        return self.ps(m)
 
     def loglk(self, old_loglk):
-        return None
+        self
+        if old_loglk is None:
+            return None
+        if not isinstance(self.game, game.GameWithObservabilities) or self.game.fake_target[-1] == 0:
+            o = self.game.history[-1][1][0]
+            self.set_weights(o)
+            lkl = self.weights[o] / sum(self.weights)
+        else:
+            # if no feedback is received then we compute belief that defended target was not attacked
+            ###TODO: figure out how to update weights in partial feedback case to avoid having division by 0 (maybe start from uniform distr)
+            def_target = self.game.history[-1][0][0]
+            lkl = 1 - self.weights[def_target] / sum(self.weights)
+        if lkl == 0:
+            return None
+        new_l = log(lkl)
+        return ((old_loglk * max(self.tau() - 1, 0) + new_l) /
+                max(self.tau(), 1))
 
 class SUQR(StrategyAwareAttacker):
 

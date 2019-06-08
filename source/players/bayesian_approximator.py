@@ -4,9 +4,8 @@ from math import log
 import re
 import random as random
 import numpy as np
-import source.util as util
-import scipy.stats as stats
-import sys
+from scipy.stats import dirichlet
+import source.players.attackers as attackers
 
 
 class BA(player.Defender):
@@ -20,44 +19,17 @@ class BA(player.Defender):
 
     def __init__(self, game, pl_id, resources=1):
         super().__init__(game, pl_id, resources)
-        self.observed_something = 0
-        self.estimated_prob = dict()
-
-    def finalize_init(self):
-        super().finalize_init()
-        for t in range(len(self.game.values)):
-            self.estimated_prob[t] = [0, 0]
+        self.alpha = np.array([1 for t in range(len(self.game.values))])
 
     def compute_strategy(self):
-        if not self.observed_something:
-            #in the beginning play uniform strategy (default for player class)
-            return super().compute_strategy()
-        else:
-            valid_probs = {p: float(self.estimated_prob[p][0] /
-                                    self.estimated_prob[p][1])
-                           for p in self.estimated_prob.keys() if
-                           self.estimated_prob[p][0] > 0}
-            valid_keys = [int(k) for k in valid_probs.keys()]
-#            valid_probs_values = [float(x) for x in valid_probs.values()]
-            min_ent = sys.float_info.max
-            min_ent_prof = None
-            for prof in self.game.profiles:
-                prof_strat = prof.compute_strategy()
-#                valid_prof_strat = [prof_strat[t] for t in valid_keys]
-                entropy = sum([prof_strat[k] *
-                               log(prof_strat[k] / valid_probs[k])
-                               for k in valid_keys])
-                if entropy < min_ent:
-                    min_ent = entropy
-                    min_ent_prof = prof
-            p = min_ent_prof
-        return self.br_to(p)
+#        sample = np.random.dirichlet(self.alphas, 1)
+#        sample = tuple(dirichlet.rvs(self.alpha, size=1, random_state=1)[0].tolist())
+        sample = dirichlet.rvs(self.alpha, size=1, random_state=1)[0].tolist()
+        t = max([t for t,p in enumerate(sample)],
+                key=lambda x: sample[x] * self.game.values[x][0])
+        return self.ps(t)
+#        return self.br_to(attackers.StochasticAttacker(self.game, 1, 1, *sample))
+        #either compare with profiles' probability distributions or just draw from this distribution
 
     def learn(self):
-        #increase denominator
-        self.estimated_prob[self.game.history[-1][0][0]][1] += 1
-        if not self.game.fake_target[-1]:
-            #increase numerator if observed
-            self.estimated_prob[self.game.history[-1][0][0]][0] += 1
-            if not self.observed_something:
-                self.observed_something = 1
+        self.alpha[self.game.history[-1][1][0]] += 1

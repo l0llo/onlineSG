@@ -53,10 +53,12 @@ def plot_dicts(dlst, name="figure", ylabel="$R(U)_n$", path=".",
                             color=colors[i], alpha=alpha, label=d["name"])
     ax.set_ylabel(ylabel)
     ax.set_xlabel(xlabel)
+#    ax.set_ylim([0, 1])
     handles, labels = ax.get_legend_handles_labels()
     handles = [h for h in handles if isinstance(h,
                                                 matplotlib.lines.Line2D)]
     labels = [h._label for h in handles]
+    labels = ["Full", "MAB"]
     ax.legend(loc=2, bbox_to_anchor=(0, 1), borderaxespad=0.1,
               fancybox=False, shadow=False, handles=handles,
               labels=labels, prop={'size': 9})
