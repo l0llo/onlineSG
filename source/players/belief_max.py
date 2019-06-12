@@ -33,7 +33,7 @@ class FB(player.Defender):
     def compute_strategy(self):
         valid_loglk = {p: self.belief.loglk[p] for p in self.A
                        if self.belief.loglk[p] is not None}
-        p = max (valid_loglk.keys(), key=lambda x: valid_loglk[x])
+        p = util.rand_max(valid_loglk.keys(), key=lambda x: valid_loglk[x])
 
 #       valid_profiles = []
 #       beliefs = []

@@ -5,6 +5,7 @@ import matplotlib
 import pickle
 from math import sqrt
 from collections import namedtuple
+import random
 
 """
 A collection of useful function
@@ -58,7 +59,7 @@ def plot_dicts(dlst, name="figure", ylabel="$R(U)_n$", path=".",
     handles = [h for h in handles if isinstance(h,
                                                 matplotlib.lines.Line2D)]
     labels = [h._label for h in handles]
-    labels = ["Full", "MAB"]
+    labels = ["FRL", "FB"]
     ax.legend(loc=2, bbox_to_anchor=(0, 1), borderaxespad=0.1,
               fancybox=False, shadow=False, handles=handles,
               labels=labels, prop={'size': 9})
@@ -353,3 +354,34 @@ def two_largest_diff(numbers):
             else:
                 max2 = x
     return abs(max1 - max2) if count >= 2 else float('+inf')
+
+
+def rand_max(iterable, key=None):
+    """
+    Works the same as max, but if you pass dictionary keys and finds multiple
+    maxima among the values, it randomly returns one of the keys instead of just
+    the first one
+    """
+    if len(iterable) == 1:
+        iterable = iterable[0]
+    it = iter(iterable)
+    try:
+        max_val = next(it)
+    except StopIteration:
+        raise ValueError("rand_max() was with empty iterable")
+    if key is None:
+        for val in it:
+            if val > max_val:
+                max_val = val
+    else:
+        max_keyval = key(max_val)
+        max_val = [max_val]
+        for val in it:
+            keyval = key(val)
+            if keyval > max_keyval:
+                max_val = [val]
+                max_keyval = keyval
+            elif keyval == max_keyval:
+                max_val.append(val)
+        max_val = random.choice(max_val)
+    return max_val

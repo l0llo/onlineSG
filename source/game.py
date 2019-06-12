@@ -118,7 +118,7 @@ class Game:
             raise TuplesWrongLenght
         np.random.shuffle(profiles)
         self.profiles = profiles
-        
+
         for i in self.players:
             self.players[i].finalize_init()
 
@@ -129,6 +129,9 @@ class Game:
         # attacker = self.players[self.attackers[0]]
         # self.difficulties = [difficulty(attacker, p)
         #                      for p in profiles if p != attacker]
+
+#    def shuffle_profiles(self):
+#        self.profiles = np.random.shuffle(self.profiles)
 
     def play_game(self):
         for t in range(self.time_horizon):
