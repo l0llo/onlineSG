@@ -56,9 +56,12 @@ class FrequentistBelief:
         if self.need_pr:
             self.compute_pr(t)
 
-    def update(self):
+    def update(self, m=None):
         for p in self.profiles:
-            self.loglk[p] = p.loglk(self.loglk[p])
+            if m:
+                self.loglk[p] = p.loglk(self.loglk[p], m)
+            else:
+                self.loglk[p] = p.loglk(self.loglk[p])
         if self.need_pr:
             self.compute_pr(self.profiles[0].tau())
 

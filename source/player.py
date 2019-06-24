@@ -375,12 +375,16 @@ class Attacker(Player):
 #            return ((old_loglk * max(self.tau() - 1, 0) + new_l) /
 #                    max(self.tau(), 1))
 
-    def loglk(self, old_loglk):
+    def loglk(self, old_loglk, m=None):
         if old_loglk is None:
             return None
-        if not isinstance(self.game, game.GameWithObservabilities) or self.game.fake_target[-1] == 0:
+        if (not isinstance(self.game, game.GameWithObservabilities)
+            or self.game.fake_target[-1] == 0):
             o = self.game.history[-1][1][0]
-            lkl = self.last_strategy[o]
+            if m and not(m == o):
+                lkl = 1 - self.last_strategy[m]
+            else:
+                lkl = self.last_strategy[o]
         else:
             # if no feedback is received then we compute belief that defended target was not attacked
             def_target = self.game.history[-1][0][0]

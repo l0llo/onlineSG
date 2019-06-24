@@ -40,8 +40,9 @@ class Environment:
         for a in self.game.attackers:
             self.game.history[-1][a] = self.game.players[a].sample_strategy()
 
-    def observe_realization(self, realization):
-        self.game.history[-1][self.agent_id] = realization
+    def observe_realization(self, realization=None):
+        if realization != None:
+            self.game.history[-1][self.agent_id] = realization
         for a in self.game.attackers:
             self.game.players[a].receive_feedback()
         for p in self.game.profiles:

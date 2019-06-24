@@ -69,7 +69,7 @@ class Parser:
     def parse_row(self, index):
         """
         returns a game object from the row at the specified index of the config
-        file. if the row as 'Obs' headers than a game with observabilities object
+        file. if the row as 'Obs' headers then a game with observabilities object
         will be returned: given observabilities shall be probability values and
         any non-probability given value will be assumed to be 1.
         """

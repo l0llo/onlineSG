@@ -39,13 +39,16 @@ def plot_dicts(dlst, name="figure", ylabel="$R(U)_n$", path=".",
     min_avg = 0.9 * min([dl['avgs'][2] for dl in dlst])
     for i, d in enumerate(dlst):
         length = len(d["avgs"])
-        markevery = list(range(int(i * length / 100),
-                               length, int(length / 10)))
+        markevery = list(range(0, length, int(length / 10)))
         ax_label = t[d["name"]] if t else d["name"]
         ax.plot(list(range(len(d["avgs"])))[2:], d["avgs"][2:],
                 linestyle=':', label=ax_label,
                 color=colors[i], marker=markers[i],
                 markevery=markevery)
+        if ("tb" in d) and (d["tb"] is not None):
+            ax.plot(list(range(len(d["tb"])))[2:], d["tb"][2:],
+                    linestyle="solid",
+                    color=colors[i])
         # ax.fill_between(list(range(len(d["lb"]))), d["ub"],
         #                d["lb"], color=colors[i], alpha=0.3, label=d["name"])
         if ("lb" in d) and ("ub" in d):
@@ -59,7 +62,7 @@ def plot_dicts(dlst, name="figure", ylabel="$R(U)_n$", path=".",
     handles = [h for h in handles if isinstance(h,
                                                 matplotlib.lines.Line2D)]
     labels = [h._label for h in handles]
-    labels = ["FRL", "FB"]
+    labels = ["$vs\_usto\_full$", "$vs\_busto\_full$", "$vs\_sto\_full$", "$vs\_usto\_mab$", "$vs\_busto\_mab$", "$vs\_sto\_mab$"]
     ax.legend(loc=2, bbox_to_anchor=(0, 1), borderaxespad=0.1,
               fancybox=False, shadow=False, handles=handles,
               labels=labels, prop={'size': 9})
@@ -385,3 +388,11 @@ def rand_max(iterable, key=None):
                 max_val.append(val)
         max_val = random.choice(max_val)
     return max_val
+
+def find_min_diff(arr, n):
+    arr = sorted(arr)
+    diff = 10 ** 20
+    for i in range(n - 1):
+        if arr[i + 1] - arr[i] < diff:
+            diff = arr[i + 1] - arr[i]
+    return diff

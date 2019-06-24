@@ -8,6 +8,7 @@ import source.util as util
 import scipy.optimize
 import logging
 import source.game as game
+from scipy.stats import dirichlet
 
 logger = logging.getLogger(__name__)
 
@@ -283,8 +284,10 @@ class UnknownStochasticAttacker(HistoryDependentAttacker):
             return distr
 
     def learn(self):
-        t = self.game.history[-1][self.id][0]
-        self.weights[t] += 1
+        if (not isinstance(self.game, game.GameWithObservabilities)
+            or self.game.fake_target[-1] == 0):
+            t = self.game.history[-1][self.id][0]
+            self.weights[t] += 1
 
     def hlearn(self, H, ds_history, hdict):
         add_w = [0 for m in self.M]
@@ -338,6 +341,58 @@ class UnknownStochasticAttacker(HistoryDependentAttacker):
         ll = sum([hdict["weights"][m] * log(hdict["last_strategy"][m])
                   for m in self.M if self.last_strategy[m]])
         return ll / t
+
+    def get_attacker(self):
+        return StochasticAttacker(self.game, 1)
+
+class BayesianUnknownStochasticAttacker(player.Attacker):
+    """
+    Not a real attacker to be instantiated: it is intended to be used by the
+    defender as a model
+    """
+
+    name = "busto"
+    pattern = re.compile(r"^" + name + "\d*(-\d+(\.\d+)?)?$")
+
+    @classmethod
+    def parse(cls, player_type, game, id):
+        return spp.parse1(cls, player_type, game, id, spp.parse_float)
+
+    def __init__(self, game, id, resources=1):
+        super().__init__(game, id, resources)
+        self.alpha = np.array([1 for t in range(len(self.game.values))])
+        self.last_sample = [1 / len(self.M) for m in self.M]
+
+    def sample_dirichlet(self, **kwargs):
+        sample = dirichlet.rvs(self.alpha, size=1, random_state=1)[0].tolist()
+        return sample
+
+    def compute_strategy(self, strategy=None, **kwargs):
+        return self.last_sample
+
+    def learn(self):
+        if (not isinstance(self.game, game.GameWithObservabilities)
+            or self.game.fake_target[-1] == 0):
+            m = self.game.history[-1][self.id][0]
+            self.alpha[m] += 1
+        else:
+            def_target = self.game.history[-1][0][0]
+            gen = (m for m in self.M if m != def_target)
+            for m in gen:
+                self.alpha[m] += 1
+        self.last_sample = self.sample_dirichlet()
+
+    def best_response(self, **kwargs):
+        m = min(self.M, key=lambda t: self.exp_loss(self.ps(t), **kwargs))
+        return self.ps(m)
+
+    def opt_loss(self, **kwargs):
+        return player.Attacker.opt_loss(self, **kwargs)
+
+    def loglk(self, old_loglk):
+        ll = sum(log(self.last_sample[self.game.history[t][self.id][0]])
+                 for t in range(len(self.game.history)))
+        return ll / self.tau()
 
     def get_attacker(self):
         return StochasticAttacker(self.game, 1)

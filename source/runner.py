@@ -151,6 +151,11 @@ class Configuration:
                                             for e in self.experiments
                                             if isinstance(e, Experiment)]) /
                                        len(self.experiments))
+        if hasattr(self.game.players[0], 'bound'):
+            self.stats["theoretical_bound"] = np.array([self.game.players[0].bound
+                                                        for t in range(self.game.time_horizon)])
+        else:
+            self.stats["theoretical_bound"] = None
         lst = [np.array(e.exp_regret) for e in self.experiments
                if isinstance(e, Experiment)]
         avgs = sum(lst) / len(lst)
@@ -167,6 +172,7 @@ class Configuration:
         self.stats["exp_regret"] = avgs
         self.stats["lb_exp_regret"] = lower_bound
         self.stats["ub_exp_regret"] = upper_bound
+        print(self.stats)
 
         # exp_number = len([e for e in self.experiments
         #                   if isinstance(e, Experiment)])
@@ -283,11 +289,12 @@ class Experiment:
         strategy = self.agent.play_strategy()
         self.environment.observe_strategy(strategy)
         realization = self.agent.sample_strategy()
+        self.game.history[-1][self.game.defenders[0]] = realization
         self.game.sample_observation()
-        self.environment.observe_realization(realization)
         feedback_prob = self.game.sample_feedback_prob()
-        feedback = self.environment.feedback("observed", feedback_prob) #TODO: right now only working with ONE attacker with ONE resource
         self.game.set_fake_target(feedback_prob)
+        self.environment.observe_realization(realization)
+        feedback = self.environment.feedback("observed", feedback_prob) #TODO: right now only working with ONE attacker with ONE resource
         #self.game.set_perceived_target()
         self.agent.receive_feedback(feedback)
         self.update_stats()
