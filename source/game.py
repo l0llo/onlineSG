@@ -72,7 +72,7 @@ class Game:
         else:
             return None
 
-    def __init__(self, payoffs, time_horizon):
+    def __init__(self, payoffs, time_horizon, known_payoffs=True, dist_att=True):
 
         self.values = payoffs
         self.time_horizon = time_horizon
@@ -82,6 +82,8 @@ class Game:
         self.history = []
         self.strategy_history = []
         self.profiles = []
+        self.known_payoffs = known_payoffs
+        self.dist_att = dist_att
 
 
     # def __str__(self):
@@ -121,7 +123,6 @@ class Game:
 
         for i in self.players:
             self.players[i].finalize_init()
-
         for p in self.profiles:
             p.finalize_init()
 
@@ -150,8 +151,9 @@ class Game:
             return [v[player_index] * (i in hit_targets)
                     for (i, v) in enumerate(self.values)]
         elif player_index in self.defenders:
-            all_hit_targets = set(t for a in self.attackers for t in moves[a]
-                                  if t not in covered_targets)
+            all_hit_targets = set(t for a in moves.keys() for t in moves[a]
+                                  if t not in covered_targets
+                                  and a not in self.defenders)
             return [-(v[player_index]) * (i in all_hit_targets)
                     for (i, v) in enumerate(self.values)]
         else:
@@ -219,10 +221,12 @@ def load(game_file):
         game = pickle.load(file)
     return game
 
-class GameWithObservabilities(Game):
+class PartialFeedbackGame(Game):
 
-    def __init__(self, payoffs, time_horizon, observabilities = None, feedback_prob = None, feedback_type = None):
-        super().__init__(payoffs, time_horizon)
+    def __init__(self, payoffs, time_horizon, observabilities=None,
+                 feedback_prob=None, feedback_type=None, known_payoffs=True,
+                 dist_att=True):
+        super().__init__(payoffs, time_horizon, known_payoffs, dist_att)
         self.observabilities = dict()
         if type(observabilities) is dict and observabilities:
             self.observabilities = observabilities
@@ -248,7 +252,8 @@ class GameWithObservabilities(Game):
         """
         if observations is not None:
             observed_targets = [k for k, v in observations.items() if v]
-            covered_targets = set(t for d in self.defenders for t in list(set(moves[d]) & set(observed_targets)))
+            covered_targets = set(t for d in self.defenders for t
+                                  in list(set(moves[d])& set(observed_targets)))
         else:
             covered_targets = set(t for d in self.defenders for t in moves[d])
 
@@ -272,7 +277,8 @@ class GameWithObservabilities(Game):
         """
         returns the payoff list of the last turn given a player index
         """
-        return self.get_player_payoffs(player_index, self.history[-1], self.observation_history[-1])
+        return self.get_player_payoffs(player_index, self.history[-1],
+                                       self.observation_history[-1])
 
     def set_observabilities(self, observabilities):
         if len(observabilities) != len(self.values):
@@ -288,30 +294,33 @@ class GameWithObservabilities(Game):
 
     def sample_observation(self):
         """
-        Samples observations for the moves made in a turn, according to the observabilities of the corresponding targets
+        Samples observations for the moves made in a turn,
+        according to the observabilities of the corresponding targets
         """
         observations = dict()
         observations = util.sample_probability(self.observabilities)
         self.observation_history.append(observations)
 
     def sample_feedback_prob(self):
-        feedback_prob = dict()
+        feedback_prob = {m: 0 for m in range(len(self.values))}
         if self.feedback_type == "mab":
-            for t in range(len(self.values)):
-                feedback_prob[t] = 1 if t == self.history[-1][self.defenders[0]][0] else 0
+            for d in self.defenders:
+                for r in range(self.players[d].resources):
+                    feedback_prob[self.history[-1][d][r]] = 1
         else:
             feedback_prob = util.sample_probability(self.feedback_prob)
         return feedback_prob
 
-    def zs_game_with_observabilities(values, time_horizon):
+    def zs_partial_feedback_game(values, time_horizon):
         """
         returns a zero sum game given the target values in **values**
         """
         payoffs = tuple((v, v) for v in values)
-        return GameWithObservabilities(payoffs, time_horizon)
+        return PartialFeedbackGame(payoffs, time_horizon)
 
     def set_fake_target(self, feedback_prob):
-        last_attacker_moves = self.history[-1].get(self.attackers[0])
+        last_attacker_moves = [self.history[-1].get(a) for a in self.attackers]
+        last_attacker_moves = list(util.flatten(last_attacker_moves))
         if any([feedback_prob.get(m) != 0 for m in last_attacker_moves]):
             self.fake_target.append(0)
         else:
@@ -333,6 +342,45 @@ class GameWithObservabilities(Game):
 #                self.game.observabilities[t] = obs * 0.95
 #            elif obs <= 0.95:
 #                self.game.observabilities[t] = obs / 0.95
+
+class MultiProfileGame(PartialFeedbackGame):
+    def __init__(self, payoffs, time_horizon, observabilities=None,
+                 feedback_prob=None, feedback_type=None, known_payoffs=True,
+                 dist_att=True):
+        super().__init__(payoffs, time_horizon, observabilities, feedback_prob,
+                         feedback_type, known_payoffs, dist_att)
+        self.profiles_distribution = None
+        self.profiles_history = []
+
+    def set_players(self, defenders, attackers, profiles, att_prob):
+        for pl in attackers:
+            self.attackers.append(pl[0].id)
+        for p in defenders:
+            self.players[p.id] = p
+            self.defenders.append(p.id)
+        if len(self.values[0]) != len(self.players):
+            raise TuplesWrongLenght
+        np.random.shuffle(profiles)
+        self.profiles = profiles
+
+        for i in self.players:
+            self.players[i].finalize_init()
+        for p in self.profiles:
+            p.finalize_init()
+
+        self.profile_distribution = []
+        for a, p in zip(attackers, att_prob):
+            a.finalize_init()
+            self.profile_distribution.append(zip(a, p))
+        self.profile_distribution = tuple(map(tuple, self.profile_distribution))
+
+    def set_attacker_profiles(self):
+        for n in len(self.profile_distribution):
+            id = self.profile_distribution[n][0][0].id
+            prob_list = list(zip(*map(list, self.profile_distribution[n]))[1])
+            sample = np.random.choice(len(prob_list), p=prob_list)
+            self.players[id] = self.profile_distribution[n][sample][0]
+            self.profiles_history[-1][n] = sample
 
 class AutoJSONEncoder(JSONEncoder):
     def default(self, obj):

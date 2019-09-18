@@ -1,6 +1,8 @@
 import re
 import sys
 import socket
+import scipy
+import source.util as util
 
 
 class Environment:
@@ -9,7 +11,8 @@ class Environment:
         self.game = game
         self.agent_id = agent_id
         self.last_exp_loss = None
-        self.last_opt_loss = None
+        self.last_opt_loss = self.opt_loss() if len(self.game.attackers) > 1 \
+                                             else self.game.players[1].opt_loss()
         self.last_act_loss = None
 
     def __str__(self):
@@ -23,14 +26,17 @@ class Environment:
         self.game.strategy_history.append(dict())
         self.game.strategy_history[-1][self.agent_id] = strategy
 
+        self.last_exp_loss = 0
         # Attackers possibly observe and compute strategies
         for a in self.game.attackers:
             self.game.strategy_history[-1][a] = (self.game.players[a].
                                                  play_strategy())
+            str_dict = {0: strategy, a: self.game.players[a].last_strategy}
+            self.last_exp_loss += self.game.players[a].exp_loss(str_dict)
         # hardcoded for 2 players
-        str_dict = {0: strategy, 1: self.game.players[1].last_strategy}
-        self.last_exp_loss = self.game.players[1].exp_loss(str_dict)
-        self.last_opt_loss = self.game.players[1].opt_loss()
+#        str_dict = {0: strategy, 1: self.game.players[1].last_strategy}
+#        self.last_exp_loss = self.game.players[1].exp_loss(str_dict)
+#        self.last_opt_loss = self.game.players[1].opt_loss()
         # Profiles possibly observe and compute strategies
         for p in self.game.profiles:
             p.play_strategy()
@@ -68,6 +74,20 @@ class Environment:
             return feedbacks
 #        elif feedback_type == "MAB":
 #            feedbacks = {t: payoffs[t] * (self.game.history[-1][self.agent_id] in self.game.history[-1][1] and self.game.history[-1][self.agent_id] == t) for t in targets}
+
+    def opt_loss(self):
+        attackers = [a for a in self.game.players.values()
+                     if a.id in self.game.attackers]
+        def fun(x):
+            return sum(a.exp_loss(x) for a in attackers)
+        targets = range(len(self.game.values))
+        bnds = tuple([(0, 1) for t in targets])
+        cons = ({'type': 'eq', 'fun': lambda x: sum(x) - 1})
+        res = scipy.optimize.minimize(fun, util.gen_distr(len(targets)),
+                                      method='SLSQP', bounds=bnds,
+                                      constraints=cons, tol=0.000001)
+        strategy_vec = list(res.x)
+        return sum(a.exp_loss(strategy_vec) for a in attackers)
 
 class RTEnvironment(Environment):
 

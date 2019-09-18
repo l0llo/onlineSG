@@ -9,6 +9,8 @@ import scipy.optimize
 import logging
 import source.game as game
 from scipy.stats import dirichlet
+from scipy.stats import beta
+from scipy.special import softmax
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +27,7 @@ class StrategyAwareAttacker(player.Attacker):
             return super().exp_loss(strategy_vec, **kwargs)
         else:
             str_dict = {0: strategy_vec,
-                        1: self.compute_strategy(strategy=strategy_vec)}
+                        self.id: self.compute_strategy(strategy=strategy_vec)}
             return super().exp_loss(str_dict)
 
     def opt_loss(self, **kwargs):
@@ -41,7 +43,7 @@ class StrategyAwareAttacker(player.Attacker):
             kwargs['strategy'] = d_strat
             a_strat = self.compute_strategy(**kwargs)
             s = {0: d_strat,
-                 1: a_strat}
+                 self.id: a_strat}
             self.last_ol = self.exp_loss(s)
             return self.last_ol
 
@@ -56,14 +58,14 @@ class HistoryDependentAttacker(player.Attacker):
             d_strat = self.best_response(**kwargs)
             a_strat = self.compute_strategy(**kwargs)
             s = {0: d_strat,
-                 1: a_strat}
+                 self.id: a_strat}
             self.last_ol = self.exp_loss(s)
             return self.last_ol
         else:
             d_strat = self.best_response(history=history, **kwargs)
             a_strat = self.compute_strategy(history=history, **kwargs)
             s = {0: d_strat,
-                 1: a_strat}
+                 self.id: a_strat}
             ol = self.exp_loss(s)
             h1 = history[:-1] if history[:-1] else None
             weight = len(h1) + 1 if h1 else 1
@@ -133,7 +135,7 @@ class StackelbergAttacker(StrategyAwareAttacker):
         if not self.last_br:
             A_ub = []
             for t in self.M:
-                terms = [self.game.values[t][self.id] * (int(i != t) if i != t or not isinstance(self.game, game.GameWithObservabilities)
+                terms = [self.game.values[t][self.id] * (int(i != t) if i != t or not isinstance(self.game, game.PartialFeedbackGame)
                                                                    else 1 - self.game.observabilities.get(t))
                          for i in self.M]
                 terms += [1]
@@ -284,7 +286,7 @@ class UnknownStochasticAttacker(HistoryDependentAttacker):
             return distr
 
     def learn(self):
-        if (not isinstance(self.game, game.GameWithObservabilities)
+        if (not isinstance(self.game, game.PartialFeedbackGame)
             or self.game.fake_target[-1] == 0):
             t = self.game.history[-1][self.id][0]
             self.weights[t] += 1
@@ -358,29 +360,42 @@ class BayesianUnknownStochasticAttacker(player.Attacker):
     def parse(cls, player_type, game, id):
         return spp.parse1(cls, player_type, game, id, spp.parse_float)
 
-    def __init__(self, game, id, resources=1):
+    def __init__(self, game, id, resources=1, prior=None):
         super().__init__(game, id, resources)
-        self.alpha = np.array([1 for t in range(len(self.game.values))])
+        self.alpha = prior if prior else np.array([1 for t in
+                                                   range(len(self.game.values))])
+
+#        self.params = prior if prior else [[1, 1] for m in self.M]
         self.last_sample = [1 / len(self.M) for m in self.M]
 
     def sample_dirichlet(self, **kwargs):
         sample = dirichlet.rvs(self.alpha, size=1, random_state=1)[0].tolist()
         return sample
 
+    def sample_beta(self, **kwargs):
+        sample = [beta.rvs(self.params[m][0], self.params[m][1], 1)
+                  for m in self.M]
+        sample = softmax(sample)
+        return sample
+
     def compute_strategy(self, strategy=None, **kwargs):
         return self.last_sample
 
     def learn(self):
-        if (not isinstance(self.game, game.GameWithObservabilities)
+        if (not isinstance(self.game, game.PartialFeedbackGame)
             or self.game.fake_target[-1] == 0):
             m = self.game.history[-1][self.id][0]
             self.alpha[m] += 1
-        else:
-            def_target = self.game.history[-1][0][0]
-            gen = (m for m in self.M if m != def_target)
-            for m in gen:
-                self.alpha[m] += 1
+#            self.params[m][0] += 1
+#        else:
+#            def_targets = self.game.history[-1][self.game.defenders[0]]
+#            gen = (m for m in self.M if m not in def_targets)
+#            for m in gen:
+#                self.alpha[m] += 1
+#            def_target = self.game.history[-1][self.game.defenders[0]][0]
+#            self.params[def_target][1] += 1
         self.last_sample = self.sample_dirichlet()
+#        self.last_sample = self.sample_beta()
 
     def best_response(self, **kwargs):
         m = min(self.M, key=lambda t: self.exp_loss(self.ps(t), **kwargs))
@@ -390,8 +405,68 @@ class BayesianUnknownStochasticAttacker(player.Attacker):
         return player.Attacker.opt_loss(self, **kwargs)
 
     def loglk(self, old_loglk):
-        ll = sum(log(self.last_sample[self.game.history[t][self.id][0]])
-                 for t in range(len(self.game.history)))
+        ll = sum([(self.params[m][0] - 1) * log(self.last_sample[m])
+                  + (self.params[m][1] - 1) * log(1 - self.last_sample[m])
+                  for m in self.M if self.last_strategy[m]])
+        return ll / self.tau()
+
+    def get_attacker(self):
+        return StochasticAttacker(self.game, 1)
+
+class TSUnknownStochasticAttacker(player.Attacker):
+    """
+    Not a real attacker to be instantiated: it is intended to be used by the
+    defender as a model
+    """
+
+    name = "tsbusto"
+    pattern = re.compile(r"^" + name + "\d*(-\d+(\.\d+)?)?$")
+
+    @classmethod
+    def parse(cls, player_type, game, id):
+        return spp.parse1(cls, player_type, game, id, spp.parse_float)
+
+    def __init__(self, game, id, resources=1, prior=None):
+        super().__init__(game, id, resources)
+        self.alpha = prior if prior else np.array([[1, 1] for t in
+                                                   range(len(self.game.values))])
+
+        self.last_sample = [1 / len(self.M) for m in self.M]
+
+    def sample_beta(self, **kwargs):
+        sample = [beta.rvs(self.params[m][0], self.params[m][1], 1)
+                  for m in self.M]
+        sample = softmax(sample)
+        return sample
+
+    def compute_strategy(self, strategy=None, **kwargs):
+        return self.last_sample
+
+    def learn(self):
+        m = self.game.history[-1][self.id][0]
+        if (not isinstance(self.game, game.PartialFeedbackGame)
+            or self.game.fake_target[-1] == 0):
+            self.params[m][0] += 1
+        else:
+            def_targets = self.game.history[-1][self.game.defenders[0]]
+            for dt in def_targets:
+                if m != dt:
+                    self.params[dt][1] += 1
+                else:
+                    self.params[dt][0] += 1
+        self.last_sample = self.sample_beta()
+
+    def best_response(self, **kwargs):
+        m = min(self.M, key=lambda t: self.exp_loss(self.ps(t), **kwargs))
+        return self.ps(m)
+
+    def opt_loss(self, **kwargs):
+        return player.Attacker.opt_loss(self, **kwargs)
+
+    def loglk(self, old_loglk):
+        ll = sum([(self.params[m][0] - 1) * log(self.last_sample[m])
+                  + (self.params[m][1] - 1) * log(1 - self.last_sample[m])
+                  for m in self.M if self.last_strategy[m]])
         return ll / self.tau()
 
     def get_attacker(self):
@@ -481,7 +556,7 @@ class BayesianUnknownStochasticAttacker(player.Attacker):
 #        self
 #        if old_loglk is None:
 #            return None
-#        if not isinstance(self.game, game.GameWithObservabilities) or self.game.fake_target[-1] == 0:
+#        if not isinstance(self.game, game.PartialFeedbackGame) or self.game.fake_target[-1] == 0:
 #            o = self.game.history[-1][1][0]
 #            self.set_weights(o)
 #            lkl = self.weights[o] / sum(self.weights)
@@ -522,7 +597,7 @@ class SUQR(StrategyAwareAttacker):
 
     def compute_strategy(self, strategy=None, **kwargs):
         if strategy is None:
-            x = self.game.strategy_history[-1][0]
+            x = self.game.strategy_history[-1][self.game.defenders[0]]
             return self.qr(x)
         else:
             return self.qr(strategy)
@@ -598,12 +673,12 @@ class USUQR(SUQR):
             else:
                 old_w1, old_w2 = self.w1, self.w2
             s = ds_history[-1]
-            j = history[-1][1]
+            j = history[-1][self.id]
         else:
             old_w1, old_w2 = self.w1, self.w2
-            s = self.game.strategy_history[-1][0]
-            j = self.game.history[-1][1][0]
-        v = [x[0] for x in self.game.values]
+            s = self.game.strategy_history[-1][self.game.defenders[0]]
+            j = self.game.history[-1][self.id][0]
+        v = [x[self.id] for x in self.game.values]
         factors = [exp(-old_w1 * s[i] + old_w2 * v[i])
                    for i in range(len(v))]
         den = sum(factors)
@@ -612,7 +687,7 @@ class USUQR(SUQR):
         gr1, gr2 = num1 / den, num2 / den
         eta = 0.5
         w1 = min(max(old_w1 + eta * gr1, 5), 15)
-        w2 = min(max(old_w2+ eta * gr2, 0), 1)
+        w2 = min(max(old_w2 + eta * gr2, 0), 1)
         return w1, w2
 
     def weights_MLE(self, history=None, ds_history=None):
@@ -663,11 +738,11 @@ class USUQR(SUQR):
         ll = 0
         for i, strat in enumerate(self.game.strategy_history):
             s = strat[0]
-            j = self.game.history[i][1][0]
+            j = self.game.history[i][self.id][0]
             ll -= log(self.qr(s, w[0], w[1])[j])
         if history is not None and ds_history is not None:
             for i, s in enumerate(ds_history):
-                j = history[i][1]
+                j = history[i][self.id]
                 ll -= log(self.qr(s, w[0], w[1])[j])
         return ll
 
@@ -692,7 +767,7 @@ class ObservingStrategyAwareAttacker(player.ObservingAttacker):
             return super().exp_loss(strategy_vec, **kwargs)
         else:
             str_dict = {0: strategy_vec,
-                        1: self.compute_strategy(strategy=strategy_vec)}
+                        self.id: self.compute_strategy(strategy=strategy_vec)}
             return super().exp_loss(str_dict)
 
     def opt_loss(self, **kwargs):
@@ -708,7 +783,7 @@ class ObservingStrategyAwareAttacker(player.ObservingAttacker):
             kwargs['strategy'] = d_strat
             a_strat = self.compute_strategy(**kwargs)
             s = {0: d_strat,
-                 1: a_strat}
+                 self.id: a_strat}
             self.last_ol = self.exp_loss(s)
             return self.last_ol
 
@@ -731,7 +806,7 @@ class ObservingStackelbergAttacker(ObservingStrategyAwareAttacker):
         if not self.last_br:
             A_ub = []
             for t in self.M:
-                terms = [self.game.values[t][self.id] * int(i != t if i != t or not isinstance(self.game, game.GameWithObservabilities)
+                terms = [self.game.values[t][self.id] * int(i != t if i != t or not isinstance(self.game, game.PartialFeedbackGame)
                                                                    else 1 - self.game.observabilities.get(t))
                          for i in self.M]
                 terms += [1]
@@ -770,7 +845,7 @@ class ObservingSUQR(ObservingStrategyAwareAttacker):
 
     def compute_strategy(self, strategy=None, **kwargs):
         if strategy is None:
-            x = self.game.strategy_history[-1][0]
+            x = self.game.strategy_history[-1][self.game.defenders[0]]
             return self.qr(x)
         else:
             return self.qr(strategy)
@@ -781,7 +856,7 @@ class ObservingSUQR(ObservingStrategyAwareAttacker):
                 return self.memory[tuple(x)]
         targets = list(range(len(self.game.values)))
         R = [v[self.id] for v in self.game.values]
-        if isinstance(self.game, game.GameWithObservabilities):
+        if isinstance(self.game, game.PartialFeedbackGame):
             if a is not None and b is not None and c is not None:
                 q = np.array([exp((-a * x[t] +
                                 b * R[t]

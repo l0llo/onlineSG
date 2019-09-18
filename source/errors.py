@@ -112,6 +112,9 @@ class TargetsAndObservabilitiesMismatchError(OSG_Error):
 class TargetsAndFeedbackProbabilitiesMismatchError(OSG_Error):
     pass
 
+class AttackerProbabilitiesAndAttackerMismatchError(OSG_Error):
+    pass
+
 class MultipleUnknownProfilesError(OSG_Error):
     def __str__(self):
         return "Only one unknown profile allowed per configuration"

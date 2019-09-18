@@ -6,6 +6,9 @@ import pickle
 from math import sqrt
 from collections import namedtuple
 import random
+import collections
+from functools import reduce
+import operator
 
 """
 A collection of useful function
@@ -62,7 +65,7 @@ def plot_dicts(dlst, name="figure", ylabel="$R(U)_n$", path=".",
     handles = [h for h in handles if isinstance(h,
                                                 matplotlib.lines.Line2D)]
     labels = [h._label for h in handles]
-    labels = ["$vs\_usto\_full$", "$vs\_busto\_full$", "$vs\_sto\_full$", "$vs\_usto\_mab$", "$vs\_busto\_mab$", "$vs\_sto\_mab$"]
+    labels = ["$Full$", "$MAB$"]
     ax.legend(loc=2, bbox_to_anchor=(0, 1), borderaxespad=0.1,
               fancybox=False, shadow=False, handles=handles,
               labels=labels, prop={'size': 9})
@@ -396,3 +399,21 @@ def find_min_diff(arr, n):
         if arr[i + 1] - arr[i] < diff:
             diff = arr[i + 1] - arr[i]
     return diff
+
+def flatten(l):
+    """
+    Flattens nested list independently on the nesting level;
+    returns a generator of the nested list
+    """
+    for el in l:
+        if (isinstance(el, collections.Iterable)
+            and not isinstance(el, (str, bytes))):
+            yield from flatten(el)
+        else:
+            yield el
+
+def prod(iterable):
+    """
+    Analogous to sum(iterable), but returns the product of the elements instead
+    """
+    return reduce(operator.mul, iterable, 1)

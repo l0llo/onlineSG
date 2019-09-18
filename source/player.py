@@ -178,11 +178,11 @@ class Defender(Player):
 
     def br_uniform(self):
         targets = range(len(self.game.values))
-        max_target = max(targets, key=lambda x: self.game.values[x][0])
+        max_target = max(targets, key=lambda x: self.game.values[x][self.id])
         return [int(i == max_target) for i in targets]
 
     def br_to(self, a, **kwargs):
-        if isinstance(self.game, game.GameWithObservabilities):
+        if isinstance(self.game, game.PartialFeedbackGame):
             try:
                 a.best_response_with_obs(**kwargs)
             except:
@@ -307,33 +307,33 @@ class Attacker(Player):
 
     def exp_loss(self, strategy_vec, **kwargs):
         if isinstance(strategy_vec, dict):
-            if isinstance(self.game, game.GameWithObservabilities):
+            if isinstance(self.game, game.PartialFeedbackGame):
                 return -sum([s_d *
                             sum([s_a * (sum(self.game.
-                                            get_player_payoffs(0, {0: [i], 1:[j]}))
+                                            get_player_payoffs(0, {0: [i], self.id:[j]}))
                                         if j != i else \
                                              -(self.game.values[i][self.id] * \
                                               (1 - self.game.observabilities.get(i))))
-                                for j, s_a in enumerate(strategy_vec[1])
+                                for j, s_a in enumerate(strategy_vec[self.id])
                                 ])
                             for i, s_d in enumerate(strategy_vec[0])])
-                exp_loss = 0
-                for i, s_d in enumerate(strategy_vec[0]):
-                    for j, s_a in enumerate(strategy_vec[1]):
-                        guard = 1 if j != i else 1 - self.game.observabilities.get(i)
-                        payoffs = self.game.get_player_payoffs(0, {0: [i], 1:[j]})
-                        exp_loss -= s_d * s_a * payoffs[j] * guard
-                return exp_loss
+#                exp_loss = 0
+#                for i, s_d in enumerate(strategy_vec[0]):
+#                    for j, s_a in enumerate(strategy_vec[self.id]):
+#                        guard = 1 if j != i else 1 - self.game.observabilities.get(i)
+#                        payoffs = self.game.get_player_payoffs(0, {0: [i], self.id:[j]})
+#                        exp_loss -= s_d * s_a * payoffs[j] * guard
+#                return exp_loss
             else:
                 return -sum([s_d *
                              sum([s_a * sum(self.game.
-                                            get_player_payoffs(0, {0: [i], 1:[j]}))
-                                  for j, s_a in enumerate(strategy_vec[1])
+                                            get_player_payoffs(0, {0: [i], self.id:[j]}))
+                                  for j, s_a in enumerate(strategy_vec[self.id])
                                   if j != i])
                              for i, s_d in enumerate(strategy_vec[0])])
         else:
             return self.exp_loss({0: strategy_vec,
-                                  1: self.compute_strategy(**kwargs)})
+                                  self.id: self.compute_strategy(**kwargs)})
 
     def best_response(self, **kwargs):
         """
@@ -356,14 +356,14 @@ class Attacker(Player):
             d_strat = self.best_response(**kwargs)
             a_strat = self.compute_strategy(**kwargs)
             s = {0: d_strat,
-                 1: a_strat}
+                 self.id: a_strat}
             self.last_ol = self.exp_loss(s)
             return self.last_ol
 
 #    def loglk(self, old_loglk):
 #        if old_loglk is None:
 #            return None
-#        elif isinstance(self.game, game.GameWithObservabilities) and self.game.fake_target[-1] == 1:
+#        elif isinstance(self.game, game.PartialFeedbackGame) and self.game.fake_target[-1] == 1:
 #            o = self.game.perceived_target[-1]
 #        else:
 #            o = self.game.history[-1][1][0]
@@ -378,17 +378,17 @@ class Attacker(Player):
     def loglk(self, old_loglk, m=None):
         if old_loglk is None:
             return None
-        if (not isinstance(self.game, game.GameWithObservabilities)
+        if (not isinstance(self.game, game.PartialFeedbackGame)
             or self.game.fake_target[-1] == 0):
-            o = self.game.history[-1][1][0]
+            o = self.game.history[-1][self.id][0]
             if m and not(m == o):
                 lkl = 1 - self.last_strategy[m]
             else:
                 lkl = self.last_strategy[o]
         else:
             # if no feedback is received then we compute belief that defended target was not attacked
-            def_target = self.game.history[-1][0][0]
-            lkl = 1 - self.last_strategy[def_target]
+            def_targets = [self.game.history[-1][self.game.defenders[0]][0]]
+            lkl = 1 - sum(self.last_strategy[t] for t in def_targets)
         if lkl == 0:
             return None
         new_l = log(lkl)
@@ -399,7 +399,7 @@ class Attacker(Player):
                history, ds_history):
         if old_loglk is None:
             return None
-        o = history[-1][1]
+        o = history[-1][self.id]
         lkl = hdict["last_strategy"][o]
         if lkl == 0:
             return None
@@ -439,8 +439,9 @@ class ObservingAttacker(Attacker):
                                                       ord=1)
         # compute the expected value of each target (v[t]*(1-o[t]*c[t])) if game has observabilities, otherwise as ususal
         values = np.array([self.game.values[t][self.id] for t in targets])
-        if isinstance(self.game, game.GameWithObservabilities):
-            expected_payoffs = [values[t] * (1 - coverage[t] * self.game.observabilities.get(t)) for t in targets]
+        if isinstance(self.game, game.PartialFeedbackGame):
+            expected_payoffs = [values[t] * (1 - coverage[t]
+                                * self.game.observabilities.get(t)) for t in targets]
         else:
             expected_payoffs = values * (np.ones(len(targets)) - coverage)
         expected_payoffs = [round(v, 3) for v in expected_payoffs]
@@ -480,8 +481,9 @@ class ObservingAttacker(Attacker):
 
         # compute the expected value of each target (v[t]*(1-c[t])) if game has observabilities, otherwise as ususal
         values = np.array([self.game.values[t][self.id] for t in targets])
-        if isinstance(self.game, game.GameWithObservabilities):
-            expected_payoffs = [values[t] * (1 - coverage[t] * self.game.observabilities.get(t)) for t in targets]
+        if isinstance(self.game, game.PartialFeedbackGame):
+            expected_payoffs = [values[t] * (1 - coverage[t] *
+                                self.game.observabilities.get(t)) for t in targets]
         else:
             expected_payoffs = values * (np.ones(len(targets)) - coverage)
         expected_payoffs = [round(v, 3) for v in expected_payoffs]

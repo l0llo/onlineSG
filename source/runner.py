@@ -285,7 +285,7 @@ class Experiment:
         self.agent.receive_feedback(feedback)
         self.update_stats()
 
-    def run_interaction_with_observations(self):
+    def run_partial_feedback_interaction(self):
         strategy = self.agent.play_strategy()
         self.environment.observe_strategy(strategy)
         realization = self.agent.sample_strategy()
@@ -294,10 +294,14 @@ class Experiment:
         feedback_prob = self.game.sample_feedback_prob()
         self.game.set_fake_target(feedback_prob)
         self.environment.observe_realization(realization)
-        feedback = self.environment.feedback("observed", feedback_prob) #TODO: right now only working with ONE attacker with ONE resource
+        feedback = self.environment.feedback("observed", feedback_prob)
         #self.game.set_perceived_target()
         self.agent.receive_feedback(feedback)
         self.update_stats()
+
+    def run_multi_profile_interaction(self):
+        self.game.set_attacker_profiles()
+        self.run_partial_feedback_interaction()
 
     def update_stats(self):
         el = self.environment.last_exp_loss
@@ -331,8 +335,10 @@ class Experiment:
         while(not self.game.is_finished()):
             i += 1
             logger.debug(str(i))
-            if isinstance(self.game, game.GameWithObservabilities):
-                self.run_interaction_with_observations()
+            if isinstance(self.game, game.MultiProfileGame):
+                self.run_multi_profile_interaction()
+            elif isinstance(self.game, game.PartialFeedbackGame):
+                self.run_partial_feedback_interaction()
             else:
                 self.run_interaction()
         self.run_time = time.time() - start_time
@@ -349,7 +355,7 @@ class Experiment:
             key = "feedback target " + str(t)
             df[key] = [f[t] for f in self.agent.feedbacks]
         df["total"] = [f['total'] for f in self.agent.feedbacks]
-        if isinstance(self.game, game.GameWithObservabilities):
+        if isinstance(self.game, game.PartialFeedbackGame):
             df["target_observed?"] = ["not observed" if self.game.fake_target[ft] else "observed" for ft in range(len(self.game.fake_target))]
             #df["perceived_target"] = self.game.perceived_target
         df["exp_loss"] = self.exp_loss

@@ -1,7 +1,8 @@
 import numpy as np
 from math import log, exp, sqrt
 from copy import copy
-
+import itertools
+import source.util as util
 
 class Belief:
 
@@ -85,3 +86,28 @@ class FrequentistBelief:
         b.loglk = copy(self.loglk)
         b.pr = copy(self.pr)
         return b
+
+class MultiBelief:
+
+    def __init__(self, profiles, num_att):
+        self.profile_combinations = [tuple(x) for x in
+                                     itertools.combinations_with_replacement(
+                                     profiles, num_att)]
+        self.loglk = {i: 0 for i in self.profile_combinations}
+
+    def update(self, targets=None):
+        for p in self.profile_combinations:
+            self.loglk[p] = self.multiloglk(self.loglk[p], list(p), targets)
+
+    def multiloglk(self, old_loglk, prof_list, targets):
+        if old_loglk is None:
+            return None
+        lkl = 1
+        for o in targets:
+            for t in o:
+                lkl *= 1 - util.prod(1 - p.last_strategy[t] for p in prof_list)
+        if lkl == 0:
+            return None
+        new_l = log(lkl)
+        return ((old_loglk * max(prof_list[0].tau() - 1, 0) + new_l) /
+                max(prof_list[0].tau(), 1))

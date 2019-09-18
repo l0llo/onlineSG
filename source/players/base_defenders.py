@@ -157,7 +157,7 @@ class ExpertDefender(player.Defender):
                   self.game.strategy_history[-1][self.id]):
                 a = e.sample_strategy()
                 moves[0] = a
-            if isinstance(self.game, GameWithObservabilities):
+            if isinstance(self.game, PartialFeedbackGame):
                 observations = copy(self.game.observation_history[-1])
                 current_reward = sum(self.game.get_player_payoffs(0, moves, observations))
             else:
@@ -246,7 +246,7 @@ class MABDefender(ExpertDefender):
     def learn(self):
         e = self.sel_arm
         moves = copy(self.game.history[-1])
-        if isinstance(self.game, GameWithObservabilities):
+        if isinstance(self.game, PartialFeedbackGame):
             observations = copy(self.game.observation_history[-1])
             current_reward = sum(self.game.get_player_payoffs(0, moves, observations))
         else:

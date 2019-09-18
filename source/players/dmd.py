@@ -1,7 +1,7 @@
 import source.player as player
 import source.players.attackers as attackers
 import source.standard_player_parsers as spp
-from math import log, exp
+from math import log, exp, sqrt
 import scipy.stats as stats
 import re
 import source.belief
@@ -61,61 +61,9 @@ class DirichletMultinomialDefender(player.Defender):
 #        targets = range(len(self.game.values))
 #        self.dirichlet_alphas = {t: prior_str[t] * game_length for t in targets}
 
-#class RE(player.Defender):
-#
-#    name = "RE"
-#    pattern = re.compile(r"^" + name + r"\d(-\d)?$")
-#
-#    @classmethod
-#    def parse(cls, player_type, game, id):
-#        return spp.parse1(cls, player_type, game, id, spp.parse_integers)
-#
-#    def __init__(self, game, pl_id, resources=1):
-#        super().__init__(game, pl_id, resources)
-#        self.actual_losses = None
-#        self.exp_losses = None
-#        self.last_prof = None
-#
-#    def finalize_init(self):
-#        super().finalize_init()
-#        self.actual_losses = {p: [0, 0] for p in self.game.profiles}
-#        self.exp_losses = {p: {i: 0 for i in self.game.profiles} for p in self.game.profiles}
-#        self.last_prof = self.game.profiles[0]
-#        for p in self.exp_losses.keys():
-#            for i in self.game.profiles:
-#                def_strat = list(self.br_to(i))
-#                att_strat = p.compute_strategy(def_strat)
-#                self.exp_losses[p][i] = p.exp_loss({0:def_strat, 1:att_strat})
-#
-#    def compute_strategy(self):
-#        if self.tau() == 0:
-#            return self.br_to(self.last_prof)
-#        min_diff = sys.float_info.max
-#        for p in self.exp_losses.keys():
-#            diff_losses = 0
-#            for i in self.actual_losses.keys():
-#                if self.actual_losses[i][1] > 0:
-#                    diff_losses += abs(self.exp_losses[p][i]
-#                                       - self.actual_losses[i][0]
-#                                       / self.actual_losses[i][1]) \
-#                                   * self.actual_losses[i][1]
-#            print(p, "with diff loss", diff_losses)
-#            if diff_losses < min_diff:
-#                min_diff = diff_losses
-#                self.last_prof = p
-#        print("CHOSEN: ", self.last_prof)
-#        print("LOSSES: ", self.actual_losses)
-#        return self.br_to(self.last_prof)
-#
-#    def learn(self):
-#        print("LAST PAYOFF: ", abs(sum(self.game.get_last_turn_payoffs(0))))
-#        self.actual_losses[self.last_prof][0] = self.actual_losses[self.last_prof][0] \
-#                                                + abs(sum(self.game.get_last_turn_payoffs(0)))
-#        self.actual_losses[self.last_prof][1] += 1
+class RE(player.Defender):
 
-class FRL(player.Defender):
-
-    name = "FRL"
+    name = "RE"
     pattern = re.compile(r"^" + name + r"\d(-\d)?$")
 
     @classmethod
@@ -124,35 +72,40 @@ class FRL(player.Defender):
 
     def __init__(self, game, pl_id, resources=1):
         super().__init__(game, pl_id, resources)
-        self.belief = None
-        self.exp_losses = dict()
-#        self.has_game_observabilities = isinstance(self.game, gm.GameWithObservabilities)
+        self.actual_losses = None
+        self.exp_losses = None
+        self.last_prof = None
 
     def finalize_init(self):
         super().finalize_init()
-        self.belief = source.belief.FrequentistBelief(self.game.profiles,
-                                                      need_pr=True)
-        for p in self.game.profiles:
-            self.exp_losses[p] = dict()
-            for k in self.game.profiles:
-                s_d = list(self.br_to(p))
-                s_a = k.compute_strategy(s_d)
-                self.exp_losses[p][k] = k.exp_loss({0:s_d,
-                                                    1:s_a})
+        self.actual_losses = {p: [0, 0] for p in self.game.profiles}
+        self.exp_losses = {p: {i: 0 for i in self.game.profiles} for p in self.game.profiles}
+        self.last_prof = self.game.profiles[0]
+        for p in self.exp_losses.keys():
+            for i in self.game.profiles:
+                def_strat = list(self.br_to(i))
+                self.exp_losses[p][i] = p.exp_loss(def_strat)
 
     def compute_strategy(self):
-        R = self.reg_est()
-        min_p = min(R.keys(), key=lambda p: R[p])
-        return self.br_to(min_p)
-
-    def reg_est(self):
-        r = dict()
-        for p in self.game.profiles:
-            max_loss_k = util.rand_max(self.exp_losses[p].keys(),
-                                       key=lambda x: self.exp_losses[p][x]
-                                                     * self.belief.pr[x])
-            r[p] = self.exp_losses[p][max_loss_k] * self.belief.pr[max_loss_k]
-        return r
+        if self.tau() == 0:
+            return self.br_to(self.last_prof)
+        min_diff = sys.float_info.max
+        for p in self.exp_losses.keys():
+            diff_losses = 0
+            for i in self.actual_losses.keys():
+                if self.actual_losses[i][1] > 0:
+                    diff_losses += abs(self.exp_losses[p][i]
+                                       * self.actual_losses[i][1]
+                                       - self.actual_losses[i][0]) ** 2
+            print(p, "with diff loss", diff_losses)
+            if diff_losses < min_diff:
+                min_diff = diff_losses
+                self.last_prof = p
+        print("CHOSEN: ", self.last_prof)
+        print("LOSSES: ", self.actual_losses)
+        return self.br_to(self.last_prof)
 
     def learn(self):
-        self.belief.update()
+        print("LAST PAYOFF: ", abs(sum(self.game.get_last_turn_payoffs(0))))
+        self.actual_losses[self.last_prof][0] += abs(sum(self.game.get_last_turn_payoffs(self.id)))
+        self.actual_losses[self.last_prof][1] += 1
