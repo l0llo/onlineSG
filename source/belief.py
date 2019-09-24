@@ -111,3 +111,39 @@ class MultiBelief:
         new_l = log(lkl)
         return ((old_loglk * max(prof_list[0].tau() - 1, 0) + new_l) /
                 max(prof_list[0].tau(), 1))
+
+#class MultiProfileBelief:
+#    def __init__(self, profiles):
+#        self.profile_combinations = []
+#        for i in self.profiles[0].game.attackers:
+#            prof_of_i = []
+#            for p in profiles:
+#                if p.id == i:
+#                    prof_of_i.append(p)
+#            self.profile_combinations.append([tuple(x) for x in
+#                                              itertools.combinations_with_replacement(
+#                                              prof_of_i, len(prof_of_i))])
+#        self.profile_combinations = list(itertools.product(*self.profile_combinations))
+#        self.loglk = {i: [0] for i in self.profile_combinations}
+#        self.freq = {i: [[0 for p in a] for a in i] for i in self.profile_combinations}
+
+class MultiProfileBelief:
+    def __init__(self, profiles):
+        self.profiles = profiles
+        num_prof_per_att = self.profiles[0].game.num_prof
+        self.profile_combinations = list(itertools.combinations(profiles, num_prof_per_att))
+        self.loglk = {i: 0 for i in self.profile_combinations}
+        self.freq = {i: [0 for p in i] for i in self.profile_combinations}
+
+    def update(self):
+        o = self.profiles[0].game.history[-1][self.profiles[0].game.attackers[0]][0]
+        dec_tau = max(len(self.profiles[0].game.history) - 1, 0)
+        for profiles in list(self.loglk.keys()):
+            max_b = -1
+            max_p = None
+            for i, p in enumerate(list(profiles)):
+                if p.last_strategy[o] > max_b:
+                    max_b = p.last_strategy[o]
+                    max_p = i
+            self.loglk[profiles] = (self.loglk[profiles] * dec_tau + log(max_b)) / max(dec_tau + 1, 1)
+            self.freq[profiles][max_p] += 1

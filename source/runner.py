@@ -16,6 +16,7 @@ import concurrent.futures
 import logging
 import time
 import source.game as game
+import source.util as util
 
 
 AbortedExperiment = namedtuple('AbortedExperiment', ['error', 'info', 'seed'])
@@ -300,7 +301,8 @@ class Experiment:
         self.update_stats()
 
     def run_multi_profile_interaction(self):
-        self.game.set_attacker_profiles()
+        if self.game.history:
+            self.game.set_attacker_profiles()
         self.run_partial_feedback_interaction()
 
     def update_stats(self):
@@ -361,6 +363,8 @@ class Experiment:
         df["exp_loss"] = self.exp_loss
         df["actual_regret"] = self.actual_regret
         df["exp_regret"] = self.exp_regret
+        if isinstance(self.game, game.MultiProfileGame):
+            df["learning_history"] = self.game.players[0].learning_history
         df.to_csv(folder + "/" + str(self.seed))
         f = open(folder + "/seeds.txt", "a")
         f.write(str(self.seed) + "\n")

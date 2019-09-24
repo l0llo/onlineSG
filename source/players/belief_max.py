@@ -30,12 +30,15 @@ class FB(player.Defender):
     def __init__(self, game, pl_id, resources=1):
         super().__init__(game, pl_id, resources)
         self.belief = None
+        self.learning_history = []
 #        self.bound = 0
 #        self.is_game_partial_feedback = isinstance(self.game, gm.PartialFeedbackGame)
 
     def finalize_init(self):
         super().finalize_init()
-        if len(self.game.attackers) > 1 and not self.game.dist_att:
+        if type(self.game).__name__ == "MultiProfileGame":
+            self.belief = source.belief.MultiProfileBelief(self.game.profiles)
+        elif len(self.game.attackers) > 1 and not self.game.dist_att:
             self.belief = source.belief.MultiBelief(self.game.profiles,
                                                     len(self.game.attackers))
         else:
@@ -43,6 +46,8 @@ class FB(player.Defender):
 #        self.compute_bound()
 
     def compute_strategy(self):
+        if type(self.game).__name__ == "MultiProfileGame":
+            return  self.compute_multi_prof_strategy()
         if len(self.game.attackers) > 1:
             return self.compute_multi_strategy()
         valid_loglk = {p: self.belief.loglk[p] for p in self.A
@@ -79,7 +84,9 @@ class FB(player.Defender):
 
     def learn(self):
 #        m = self.compute_most_informative_target()
-        if len(self.game.attackers) > 1 and not self.game.dist_att:
+        if type(self.game).__name__ == "MultiProfileGame":
+            self.belief.update()
+        elif len(self.game.attackers) > 1 and not self.game.dist_att:
             self.belief.update([self.game.history[-1][p]
                                 for p in self.game.players if p != self.id])
         else:
@@ -102,18 +109,35 @@ class FB(player.Defender):
 #        min_prob_diff = [util.find_min_diff(l, len(l)) for l in prob_by_target]
 #        return np.argmax(min_prob_diff)
 
+    def compute_multi_prof_strategy(self):
+        valid_loglk = {p: self.belief.loglk[p] for p in self.belief.loglk.keys()
+                       if self.belief.loglk[p] is not None}
+        p = list(util.rand_max(valid_loglk.keys(), key=lambda x: valid_loglk[x]))
+        self.learning_history.append('|'.join([*map(util.print_adv, p)]))
+        if sum(self.belief.freq[tuple(p)]) == 0:
+            prob = [1 / self.game.num_prof] * self.game.num_prof
+        else:
+            prob = [x / sum(self.belief.freq[tuple(p)]) for x in self.belief.freq[tuple(p)]]
+        p_pr_l = (tuple([(i, j) for (i, j) in zip(p, prob)]),)
+        sol = self.mp_br_to(p_pr_l)
+        exp_loss = 0
+        for p in self.game.profile_distribution[0]:
+            exp_loss += p[1] * p[0].exp_loss({0: sol[:-1], 1: p[0].compute_strategy(sol[:-1])})
+        self.last_exp_loss = exp_loss
+        return sol[:-1]
+
     def compute_bound(self):
         best_responses = [self.br_to(p) for p in self.A]
         lambda_k_opt = self.compute_lambda_k(self.game.players[1], best_responses)
         a_str = None
         with io.StringIO() as buffer, redirect_stdout(buffer):
-            print(self.game.players[1])
+#            print(self.game.players[1])
             a_str = buffer.getvalue().replace("\n", "")
             buffer.close()
         for p in self.A:
             p_str = None
             with io.StringIO() as buffer, redirect_stdout(buffer):
-                print(p)
+#                print(p)
                 p_str = buffer.getvalue().replace("\n", "")
                 buffer.close()
             if p_str != a_str:

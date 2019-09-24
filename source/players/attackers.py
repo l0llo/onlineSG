@@ -155,6 +155,10 @@ class StackelbergAttacker(StrategyAwareAttacker):
             self.last_br, self.last_ol = scipy_sol[:-1], -scipy_sol[-1]
         return self.last_br
 
+    def update_obj_fun(self, prob):
+        o_f_constants = [0 for i in self.M] + [-prob]
+        return o_f_constants
+
     # def init_br(self):
     #     br = base_defenders.StackelbergDefender(self.game, 0)
     #     return br
@@ -249,6 +253,10 @@ class StochasticAttacker(player.Attacker):
     def __str__(self):
         return "-".join([super().__str__()] +
                         [str(d) for d in self.distribution])
+
+    def update_obj_fun(self, prob):
+        o_f_constants = [-prob * self.distribution[i] * self.game.values[i][self.id] for i in self.M] + [0]
+        return o_f_constants
 
 
 class UnknownStochasticAttacker(HistoryDependentAttacker):

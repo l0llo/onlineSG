@@ -351,15 +351,16 @@ class MultiProfileGame(PartialFeedbackGame):
                          feedback_type, known_payoffs, dist_att)
         self.profiles_distribution = None
         self.profiles_history = []
+        self.num_prof = 0
 
     def set_players(self, defenders, attackers, profiles, att_prob):
+        id = attackers[0][0].id
+        self.num_prof = len(attackers[0])
         for pl in attackers:
             self.attackers.append(pl[0].id)
         for p in defenders:
             self.players[p.id] = p
             self.defenders.append(p.id)
-        if len(self.values[0]) != len(self.players):
-            raise TuplesWrongLenght
         np.random.shuffle(profiles)
         self.profiles = profiles
 
@@ -369,18 +370,25 @@ class MultiProfileGame(PartialFeedbackGame):
             p.finalize_init()
 
         self.profile_distribution = []
-        for a, p in zip(attackers, att_prob):
-            a.finalize_init()
-            self.profile_distribution.append(zip(a, p))
-        self.profile_distribution = tuple(map(tuple, self.profile_distribution))
+        for att_l, prob_l in zip(attackers, att_prob):
+            self.profile_distribution.append([])
+            for a, p in zip(att_l, prob_l):
+                a.finalize_init()
+                self.profile_distribution[-1].append((a, p))
+            self.profile_distribution[-1] = tuple(self.profile_distribution[-1])
+        self.profile_distribution = tuple(self.profile_distribution)
+
+        self.set_attacker_profiles()
 
     def set_attacker_profiles(self):
-        for n in len(self.profile_distribution):
+        self.profiles_history.append([])
+        for n in range(len(self.profile_distribution)):
             id = self.profile_distribution[n][0][0].id
-            prob_list = list(zip(*map(list, self.profile_distribution[n]))[1])
+            prob_list = [ap_pair[1] for ap_pair in self.profile_distribution[n]]
             sample = np.random.choice(len(prob_list), p=prob_list)
-            self.players[id] = self.profile_distribution[n][sample][0]
-            self.profiles_history[-1][n] = sample
+            sample_player = self.profile_distribution[n][sample][0]
+            self.players[id] = sample_player
+            self.profiles_history[-1].append(util.print_adv(sample_player))
 
 class AutoJSONEncoder(JSONEncoder):
     def default(self, obj):

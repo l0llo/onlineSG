@@ -1,4 +1,4 @@
-import source.game as game
+import source.game as gm
 import source.player as player
 import inspect
 import pandas as pd
@@ -35,7 +35,7 @@ class Parser:
         self.profile_headers = []
         self.observability_headers = []
         self.feedback_prob_headers = []
-        self.attacker_prob_headers = []
+        self.att_prof_prob_headers = []
         self.feed_type_header = None
         self.known_payoffs_header = None
         self.distinguishable_att_header = None
@@ -64,8 +64,8 @@ class Parser:
                     self.distinguishable_att_header = h
                 elif h == "Att_prof_type":
                     self.att_prof_type_header = h
-                elif h == "Attacker_prob":
-                    self.attacker_prob_headers = h
+                elif "Att_prof_prob" in h:
+                    self.att_prof_prob_headers.append(h)
                 elif h != "T" and h != "Name":
                     raise UnknownHeaderError
         observability_targets = [int(o[3:]) for o in self.observability_headers]
@@ -76,7 +76,7 @@ class Parser:
         if (feedback_prob_targets and
             collections.Counter(self.targets_headers) != collections.Counter(feedback_prob_targets)):
            raise TargetsAndFeedbackProbabilitiesMismatchError
-        if len(self.attacker_prob_headers) > len(self.attackers_headers):
+        if len(self.att_prof_prob_headers) > len(self.attackers_headers):
             raise AttackerProbabilitiesAndAttackerMismatchError
 
     def parse_row(self, index):
@@ -97,12 +97,12 @@ class Parser:
                          if isinstance(self.df[d].iloc[index], str)]
         values = [self.df[str(t)].iloc[index]
                   for t in self.targets_headers]
-        if self.attacker_prob_headers:
+        if self.att_prof_prob_headers:
             att_prof_prob = [self.df[p].iloc[index]
-                                   for p in self.attacker_prob_headers
+                                   for p in self.att_prof_prob_headers
                                    if isinstance(self.df[p].iloc[index], str)]
             att_prof_prob = [p.split('|') for p in att_prof_prob]
-            att_prof_prob = map(lambda x: float(x), att_prof_prob)
+            att_prof_prob = [list(map(float, att_prof_prob[i])) for i in range(len(att_prof_prob))]
             for p in att_prof_prob:
                 if round(sum(p), 3) != 1:
                     raise errors.NotAProbabilityError(p)
@@ -184,13 +184,14 @@ class Parser:
                                                             game, i + len(defenders_ids)))
 #            profiles = [parse_player(a, game, 1)
 #                        for (i, a) in enumerate(profile_types)]
+
             if len(att_prof_prob) < len(attacker_ids):
                 l = len(attacker_ids) - len(att_prof_prob)
                 start = len(att_prof_prob)
                 for n in range(l):
                     att_prof_prob.append(util.gen_distr(
                                             len(att_prof_prob[start + n])))
-            for n in len(attacker_ids):
+            for n in range(len(attacker_ids)):
                 if len(attacker_ids[n]) != len(att_prof_prob[n]):
                         raise AttackerProbabilitiesAndAttackerMismatchError
 
@@ -204,7 +205,7 @@ class Parser:
                 profiles.append(parse_player(profile_types[i], game,
                                 id_prof) if match
                                 else parse_player(a, game, 1))
-            if issubclass(game, game.MultiProfileGame):
+            if type(game).__name__ == 'MultiProfileGame':
                 game.set_players(defenders_ids, attacker_ids, profiles, att_prof_prob)
             else:
                 game.set_players(defenders_ids, attacker_ids, profiles)
@@ -250,7 +251,7 @@ def parse_player(player_type, game, id):
     raise UnparsablePlayerError(player_type)
 
 def parse_multi_profile_player(att_list, game, id):
-    a_list = [a.split('|') for a in att_list]
+    a_list = att_list.split('|')
     players_classes = sum([get_classes(player),
                            get_classes(attackers),
                            get_classes(defenders),
@@ -278,9 +279,9 @@ def parse_game(values, player_number, time_horizon, known_payoffs, dist_att):
     classes of game module, and then return a game; otherwise raises an
     exception
     """
-    games_classes = [obj for name, obj in inspect.getmembers(game)
+    games_classes = [obj for name, obj in inspect.getmembers(gm)
                      if inspect.isclass(obj) and
-                     issubclass(obj, game.Game) and
+                     issubclass(obj, gm.Game) and
                      hasattr(obj, 'parse_value')]
     for c in games_classes:
         parsed_values = None
@@ -299,9 +300,29 @@ def parse_partial_feedback_game(values, player_number, time_horizon,
     the observabilities + feedbacks of the game and then returns a partial
     feedback game
     """
-    games_classes = [obj for name, obj in inspect.getmembers(game)
+    games_classes = [obj for name, obj in inspect.getmembers(gm)
                      if inspect.isclass(obj) and
-                     issubclass(obj, game.PartialFeedbackGame) and
+                     issubclass(obj, gm.PartialFeedbackGame) and
+                     hasattr(obj, 'parse_value')]
+    for c in games_classes:
+        parsed_values = None
+        try:
+            parsed_values = c.parse_value(values, player_number)
+            if parsed_values:
+                return c(parsed_values, time_horizon, observabilities, feed_prob,
+                         feed_type, known_payoffs, dist_att)
+        except NonHomogeneousTuplesError as e:
+            raise UnparsableGameError(values) from e
+    raise UnparsableGameError(values)
+
+def parse_multi_profile_game(values, player_number, time_horizon,
+                observabilities, feed_prob, feed_type, known_payoffs, dist_att):
+    """
+    as parse_partial_feedback_game(), but for games with multi-profile attackers
+    """
+    games_classes = [obj for name, obj in inspect.getmembers(gm)
+                     if inspect.isclass(obj) and
+                     issubclass(obj, gm.MultiProfileGame) and
                      hasattr(obj, 'parse_value')]
     for c in games_classes:
         parsed_values = None

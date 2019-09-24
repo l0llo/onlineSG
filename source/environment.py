@@ -1,3 +1,4 @@
+import numpy as np
 import re
 import sys
 import socket
@@ -11,8 +12,19 @@ class Environment:
         self.game = game
         self.agent_id = agent_id
         self.last_exp_loss = None
-        self.last_opt_loss = self.opt_loss() if len(self.game.attackers) > 1 \
-                                             else self.game.players[1].opt_loss()
+        self.last_opt_loss = None
+        if len(self.game.attackers) > 1:
+            self.last_opt_loss = self.opt_loss()
+        elif type(self.game).__name__ == "MultiProfileGame":
+            self.last_opt_loss = 0
+            opt_strat = self.mp_opt_strat(self.game.profile_distribution)
+            for att in self.game.profile_distribution:
+                for p in att:
+                    self.last_opt_loss += p[1] * p[0].exp_loss({0: opt_strat,
+                                                                1: p[0].compute_strategy(opt_strat)})
+        else:
+            self.last_opt_loss = self.game.players[self.game.players[self.game.attackers[0]].id].opt_loss()
+
         self.last_act_loss = None
 
     def __str__(self):
@@ -32,7 +44,10 @@ class Environment:
             self.game.strategy_history[-1][a] = (self.game.players[a].
                                                  play_strategy())
             str_dict = {0: strategy, a: self.game.players[a].last_strategy}
-            self.last_exp_loss += self.game.players[a].exp_loss(str_dict)
+            if type(self.game).__name__ != "MultiProfileGame":
+                self.last_exp_loss += self.game.players[a].exp_loss(str_dict)
+            else:
+                self.last_exp_loss += self.game.players[self.agent_id].last_exp_loss
         # hardcoded for 2 players
 #        str_dict = {0: strategy, 1: self.game.players[1].last_strategy}
 #        self.last_exp_loss = self.game.players[1].exp_loss(str_dict)
@@ -88,6 +103,34 @@ class Environment:
                                       constraints=cons, tol=0.000001)
         strategy_vec = list(res.x)
         return sum(a.exp_loss(strategy_vec) for a in attackers)
+
+    def mp_opt_strat(self, ap_tup, **kwargs):
+        M = list(range(len(self.game.values)))
+        A_eq = [[1 for i in M] + [0]]
+        b_eq = [self.game.players[self.agent_id].resources]
+        A_ub = []
+        for t in M:
+            terms = [self.game.values[t][ap_tup[0][0][0].id] * int(i != t)
+                     for i in M]
+            terms += [1]
+            A_ub.append(terms)
+        b_ub = [0 for i in range(len(A_ub))]
+        bounds = [(0, 1) for i in M] + [(None, None)]
+        c = [0 for i in M] + [0]
+        for ap_t in list(ap_tup):
+            for ap in list(ap_t):
+                consts = ap[0].update_obj_fun(ap[1])
+                c = [c[i] + consts[i] for i in range(len(c))]
+
+        scipy_sol = list(scipy.optimize.linprog(c,
+                                                A_ub=np.array(A_ub),
+                                                b_ub=np.array(b_ub),
+                                                A_eq=np.array(A_eq),
+                                                b_eq=np.array(b_eq),
+                                                bounds=bounds,
+                                                method='simplex').x)
+
+        return scipy_sol[:-1]
 
 class RTEnvironment(Environment):
 

@@ -5,6 +5,7 @@ import enum
 from source.errors import AlreadyFinalizedError
 from math import log
 import source.game as game
+import scipy
 #: The possible type of learning of a learner player
 # Learning = enum.Enum('Learning', 'MAB EXPERT OTHER')
 
@@ -62,6 +63,7 @@ class Player:
         self.M = list(range(len(self.game.values)))
         self.A = None
         self.V = None
+        self.last_el = None
 
     def finalize_init(self):
         # define some aliases
@@ -182,12 +184,40 @@ class Defender(Player):
         return [int(i == max_target) for i in targets]
 
     def br_to(self, a, **kwargs):
-        if isinstance(self.game, game.PartialFeedbackGame):
+        if isinstance(self.game, game.PartialFeedbackGame and
+                        any([int(o) != 1 for o in
+                        self.game.observabilities.itervalues()])):
             try:
                 a.best_response_with_obs(**kwargs)
             except:
                 a.best_response(**kwargs)
         return a.best_response(**kwargs)
+
+    def mp_br_to(self, ap_tup, **kwargs):
+        A_eq = [[1 for i in self.M] + [0]]
+        b_eq = [self.resources]
+        A_ub = []
+        for t in self.M:
+            terms = [self.game.values[t][ap_tup[0][0][0].id] * int(i != t)
+                     for i in self.M]
+            terms += [1]
+            A_ub.append(terms)
+        b_ub = [0 for i in range(len(A_ub))]
+        bounds = [(0, 1) for i in self.M] + [(None, None)]
+        c = [0 for i in self.M] + [0]
+        for ap_t in list(ap_tup):
+            for ap in list(ap_t):
+                consts = ap[0].update_obj_fun(ap[1])
+                c = [c[i] + consts[i] for i in range(len(c))]
+
+        scipy_sol = list(scipy.optimize.linprog(c,
+                                                A_ub=np.array(A_ub),
+                                                b_ub=np.array(b_ub),
+                                                A_eq=np.array(A_eq),
+                                                b_eq=np.array(b_eq),
+                                                bounds=bounds,
+                                                method='simplex').x)
+        return scipy_sol
 
 
 class Attacker(Player):
