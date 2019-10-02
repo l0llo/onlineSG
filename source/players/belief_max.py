@@ -118,6 +118,7 @@ class FB(player.Defender):
             prob = [1 / self.game.num_prof] * self.game.num_prof
         else:
             prob = [x / sum(self.belief.freq[tuple(p)]) for x in self.belief.freq[tuple(p)]]
+#        prob = [x[1] for x in self.game.profile_distribution[0]]
         p_pr_l = (tuple([(i, j) for (i, j) in zip(p, prob)]),)
         sol = self.mp_br_to(p_pr_l)
         exp_loss = 0

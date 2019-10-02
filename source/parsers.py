@@ -185,16 +185,16 @@ class Parser:
 #            profiles = [parse_player(a, game, 1)
 #                        for (i, a) in enumerate(profile_types)]
 
-            if len(att_prof_prob) < len(attacker_ids):
-                l = len(attacker_ids) - len(att_prof_prob)
-                start = len(att_prof_prob)
-                for n in range(l):
-                    att_prof_prob.append(util.gen_distr(
-                                            len(att_prof_prob[start + n])))
-            for n in range(len(attacker_ids)):
-                if len(attacker_ids[n]) != len(att_prof_prob[n]):
-                        raise AttackerProbabilitiesAndAttackerMismatchError
-
+            if self.att_prof_prob_headers:
+                if len(att_prof_prob) < len(attacker_ids):
+                    l = len(attacker_ids) - len(att_prof_prob)
+                    start = len(att_prof_prob)
+                    for n in range(l):
+                        att_prof_prob.append(util.gen_distr(
+                                                len(att_prof_prob[start + n])))
+                for n in range(len(attacker_ids)):
+                    if len(attacker_ids[n]) != len(att_prof_prob[n]):
+                            raise AttackerProbabilitiesAndAttackerMismatchError
             profiles = []
             for i, a in enumerate(profile_types):
                 match = re.search(r"-id(.+?)$",a)
@@ -281,7 +281,7 @@ def parse_game(values, player_number, time_horizon, known_payoffs, dist_att):
     """
     games_classes = [obj for name, obj in inspect.getmembers(gm)
                      if inspect.isclass(obj) and
-                     issubclass(obj, gm.Game) and
+                     name == "Game" and
                      hasattr(obj, 'parse_value')]
     for c in games_classes:
         parsed_values = None
@@ -302,7 +302,7 @@ def parse_partial_feedback_game(values, player_number, time_horizon,
     """
     games_classes = [obj for name, obj in inspect.getmembers(gm)
                      if inspect.isclass(obj) and
-                     issubclass(obj, gm.PartialFeedbackGame) and
+                     name == "PartialFeedbackGame" and
                      hasattr(obj, 'parse_value')]
     for c in games_classes:
         parsed_values = None
@@ -322,7 +322,7 @@ def parse_multi_profile_game(values, player_number, time_horizon,
     """
     games_classes = [obj for name, obj in inspect.getmembers(gm)
                      if inspect.isclass(obj) and
-                     issubclass(obj, gm.MultiProfileGame) and
+                     name == "MultiProfileGame" and
                      hasattr(obj, 'parse_value')]
     for c in games_classes:
         parsed_values = None

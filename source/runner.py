@@ -78,6 +78,11 @@ class Batch:
                 self.configurations.append(AbortedConfiguration(e,
                                                                 traceback.format_exc(),
                                                                 row))
+#        if all([type(conf.game.players[conf.game.attackers[0]]).__name__ == "SUQR"
+#                for conf in self.configurations]):
+#            suqr_br = self.configurations[0].game.players[self.configurations[0].game.attackers[0]].best_response()
+#            for conf in self.configurations:
+#                conf.game.players[conf.game.attackers[0]].copied_br = suqr_br
 
     # def run(self, n=1, show_progress=False, workers=None):
     #     for c in self.configurations:

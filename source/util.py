@@ -64,8 +64,9 @@ def plot_dicts(dlst, name="figure", ylabel="$R(U)_n$", path=".",
     handles, labels = ax.get_legend_handles_labels()
     handles = [h for h in handles if isinstance(h,
                                                 matplotlib.lines.Line2D)]
-    labels = [h._label for h in handles]
+#    labels = [h._label for h in handles]
 #    labels = ["$Full$", "$MAB$"]
+    labels = ["$Sto$", "$Fusto$", "$Busto$", "$Busto\_good$"]
     ax.legend(loc=2, bbox_to_anchor=(0, 1), borderaxespad=0.1,
               fancybox=False, shadow=False, handles=handles,
               labels=labels, prop={'size': 9})
@@ -369,12 +370,12 @@ def rand_max(iterable, key=None):
     the first one
     """
     if len(iterable) == 1:
-        iterable = iterable[0]
+        return(list(iterable)[0])
     it = iter(iterable)
     try:
         max_val = next(it)
     except StopIteration:
-        raise ValueError("rand_max() was with empty iterable")
+        raise ValueError("rand_max() called with empty iterable")
     if key is None:
         for val in it:
             if val > max_val:

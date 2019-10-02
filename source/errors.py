@@ -118,3 +118,11 @@ class AttackerProbabilitiesAndAttackerMismatchError(OSG_Error):
 class MultipleUnknownProfilesError(OSG_Error):
     def __str__(self):
         return "Only one unknown profile allowed per configuration"
+
+class BadPriorError(OSG_Error):
+    def __init__(self, len_val, len_prior):
+        self.len_val = len_val
+        self.len_prior = len_prior
+
+    def __str__(self):
+        return repr(self.len_prior) + "-uple provided as prior, required " + repr(self.len_val) + "-uple"

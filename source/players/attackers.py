@@ -11,6 +11,7 @@ import source.game as game
 from scipy.stats import dirichlet
 from scipy.stats import beta
 from scipy.special import softmax
+from copy import deepcopy
 
 logger = logging.getLogger(__name__)
 
@@ -259,13 +260,13 @@ class StochasticAttacker(player.Attacker):
         return o_f_constants
 
 
-class UnknownStochasticAttacker(HistoryDependentAttacker):
+class FrequentistUnknownStochasticAttacker(HistoryDependentAttacker):
     """
     Not a real attacker to be instantiated: it is intended to be used by the
     defender as a model
     """
 
-    name = "usto"
+    name = "fusto"
     pattern = re.compile(r"^" + name + "\d*(-\d+(\.\d+)?)?$")
 
     @classmethod
@@ -362,26 +363,48 @@ class BayesianUnknownStochasticAttacker(player.Attacker):
     """
 
     name = "busto"
-    pattern = re.compile(r"^" + name + "\d*(-\d+(\.\d+)?)?$")
+    pattern = re.compile(r"^" + name + r"(\d+(-\d+)*)?$")
 
     @classmethod
     def parse(cls, player_type, game, id):
-        return spp.parse1(cls, player_type, game, id, spp.parse_float)
+        if cls.pattern.match(player_type):
+            arguments = [int(a) for a in
+                         player_type.split(cls.name)[1].split("-")
+                         if a != '']
+            if not arguments:
+                return cls(game, id, 1)
+            elif len(arguments) == 1:
+                return cls(game, id, arguments[0])
+            else:
+                if (len(arguments) == len(game.values) + 1):
+                    args = [game, id] + arguments
+                    return cls(*args)
+                else:
+                    raise errors.BadPriorError(len(game.values),len(arguments[1:]))
 
-    def __init__(self, game, id, resources=1, prior=None):
+    def __init__(self, game, id, resources=1, *prior):
         super().__init__(game, id, resources)
-        self.alpha = prior if prior else np.array([1 for t in
-                                                   range(len(self.game.values))])
+        if (isinstance(self.game, game.PartialFeedbackGame) and
+            (any([int(fp) != 1 for fp in list(self.game.feedback_prob.values())]) or
+            self.game.feedback_type == "mab")):
+            self.prior_type = "beta"
+        else:
+            self.prior_type = "dirichlet"
+        if self.prior_type == "dirichlet":
+            self.alphas_zero = np.array(prior) if prior else np.array([1] * len(self.M))
+        else:
+            self.alphas_zero = np.array([[p, 1] for p in prior]) if prior else np.array([[1,1]] * len(self.M))
+        self.alphas = deepcopy(self.alphas_zero)
 
 #        self.params = prior if prior else [[1, 1] for m in self.M]
-        self.last_sample = [1 / len(self.M) for m in self.M]
+        self.last_sample = [1 / len(self.M)] * len(self.M)
 
     def sample_dirichlet(self, **kwargs):
-        sample = dirichlet.rvs(self.alpha, size=1, random_state=1)[0].tolist()
+        sample = dirichlet.rvs(self.alphas, size=1, random_state=1)[0].tolist()
         return sample
 
     def sample_beta(self, **kwargs):
-        sample = [beta.rvs(self.params[m][0], self.params[m][1], 1)
+        sample = [beta.rvs(self.alphas[m][0], self.alphas[m][1], 1)
                   for m in self.M]
         sample = softmax(sample)
         return sample
@@ -390,20 +413,26 @@ class BayesianUnknownStochasticAttacker(player.Attacker):
         return self.last_sample
 
     def learn(self):
-        if (not isinstance(self.game, game.PartialFeedbackGame)
-            or self.game.fake_target[-1] == 0):
+        if self.prior_type == "dirichlet":
             m = self.game.history[-1][self.id][0]
-            self.alpha[m] += 1
+            self.alphas[m] += 1
 #            self.params[m][0] += 1
 #        else:
 #            def_targets = self.game.history[-1][self.game.defenders[0]]
 #            gen = (m for m in self.M if m not in def_targets)
 #            for m in gen:
-#                self.alpha[m] += 1
+#                self.alphas[m] += 1
 #            def_target = self.game.history[-1][self.game.defenders[0]][0]
 #            self.params[def_target][1] += 1
-        self.last_sample = self.sample_dirichlet()
-#        self.last_sample = self.sample_beta()
+            self.last_sample = self.sample_dirichlet()
+        else:
+            if self.game.fake_target[-1] == 0:
+                m = self.game.history[-1][self.id][0]
+                self.alphas[m][0] += 1
+            else:
+                m = self.game.history[-1][self.game.defenders[0]][0]
+                self.alphas[m][1] += 1
+            self.last_sample = self.sample_beta()
 
     def best_response(self, **kwargs):
         m = min(self.M, key=lambda t: self.exp_loss(self.ps(t), **kwargs))
@@ -413,9 +442,8 @@ class BayesianUnknownStochasticAttacker(player.Attacker):
         return player.Attacker.opt_loss(self, **kwargs)
 
     def loglk(self, old_loglk):
-        ll = sum([(self.params[m][0] - 1) * log(self.last_sample[m])
-                  + (self.params[m][1] - 1) * log(1 - self.last_sample[m])
-                  for m in self.M if self.last_strategy[m]])
+        ll = sum([(self.alphas[m] - self.alphas_zero[m]) * log(self.last_sample[m])
+                  for m in self.M if self.last_sample[m]])
         return ll / self.tau()
 
     def get_attacker(self):
@@ -436,7 +464,7 @@ class TSUnknownStochasticAttacker(player.Attacker):
 
     def __init__(self, game, id, resources=1, prior=None):
         super().__init__(game, id, resources)
-        self.alpha = prior if prior else np.array([[1, 1] for t in
+        self.params = prior if prior else np.array([[1, 1] for t in
                                                    range(len(self.game.values))])
 
         self.last_sample = [1 / len(self.M) for m in self.M]
@@ -602,6 +630,7 @@ class SUQR(StrategyAwareAttacker):
             self.w2 = w2
         self._use_memory = use_memory
         self.memory = dict()
+#        self.copied_br = None
 
     def compute_strategy(self, strategy=None, **kwargs):
         if strategy is None:
@@ -630,6 +659,8 @@ class SUQR(StrategyAwareAttacker):
         return list(q)
 
     def best_response(self, **kwargs):
+#        if self.copied_br:
+#            return self.copied_br
         if self.last_br is None:
             def fun(x):
                 return self.exp_loss(x)

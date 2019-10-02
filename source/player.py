@@ -184,9 +184,9 @@ class Defender(Player):
         return [int(i == max_target) for i in targets]
 
     def br_to(self, a, **kwargs):
-        if isinstance(self.game, game.PartialFeedbackGame and
+        if (isinstance(self.game, game.PartialFeedbackGame) and
                         any([int(o) != 1 for o in
-                        self.game.observabilities.itervalues()])):
+                            self.game.observabilities.values()])):
             try:
                 a.best_response_with_obs(**kwargs)
             except:
