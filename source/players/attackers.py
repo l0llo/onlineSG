@@ -277,6 +277,13 @@ class FrequentistUnknownStochasticAttacker(HistoryDependentAttacker):
         super().__init__(game, id, resources)
         self.weights = [0 for m in self.M]
         self.lb = lb
+        self.visits = [0 for m in self.M]
+        if (isinstance(self.game, game.PartialFeedbackGame) and
+            (any([int(fp) != 1 for fp in list(self.game.feedback_prob.values())]) or
+            self.game.feedback_type == "mab")):
+            self.use_ucb = 1
+        else:
+            self.use_ucb = 0
 
     def compute_strategy(self, hdict=None, **kwargs):
         """
@@ -284,21 +291,26 @@ class FrequentistUnknownStochasticAttacker(HistoryDependentAttacker):
         at each round: then best respond to the computed strategy
         """
 
+
         if self.tau() == 0:
             return self.uniform_strategy(len(self.game.values))
-        else:
+        if not self.use_ucb:
             if hdict is not None:
                 distr = util.norm_min(hdict["weights"], m=self.lb)
             else:
                 # norm = sum(self.weights)
                 distr = util.norm_min(self.weights, m=self.lb)
             return distr
+        return softmax([self.weights[m] / self.visits[m] if self.visits[m] else 0 for m in self.M])
 
     def learn(self):
         if (not isinstance(self.game, game.PartialFeedbackGame)
             or self.game.fake_target[-1] == 0):
-            t = self.game.history[-1][self.id][0]
-            self.weights[t] += 1
+            for t in self.game.history[-1][self.id]:
+                self.weights[t] += 1
+        if self.use_ucb:
+            for t in self.game.history[-1][self.game.defenders[0]]:
+                self.visits[t] += 1
 
     def hlearn(self, H, ds_history, hdict):
         add_w = [0 for m in self.M]
@@ -317,7 +329,13 @@ class FrequentistUnknownStochasticAttacker(HistoryDependentAttacker):
         more times this function in the same round could give different
         results.
         """
-
+        if self.use_ucb:
+            ucb = [self.game.values[m][self.id] * self.weights[m] / self.visits[m]
+                    if self.visits[m] else 0 for m in self.M]
+            for m in self.M:
+                ucb[m] += sqrt(2 * log(self.tau()) / self.visits[m]) if self.visits[m] else self.tau()
+            max_m = util.rand_max(self.M, key=lambda x: ucb[x])
+            return(self.ps(max_m))
         N = len(self.M)
         norm_const = max([v[self.id] for v in self.game.values])
         # if I am seeing a br in the "future" I have to compute the correct t
@@ -342,8 +360,12 @@ class FrequentistUnknownStochasticAttacker(HistoryDependentAttacker):
         return player.Attacker.opt_loss(self, **kwargs)
 
     def loglk(self, old_loglk):
-        ll = sum([self.weights[m] * log(self.last_strategy[m])
-                  for m in self.M if self.last_strategy[m]])
+        if not use_ucb:
+            ll = sum([self.weights[m] * log(self.last_strategy[m])
+                      for m in self.M if self.last_strategy[m]])
+        else:
+            ll = sum([self.visits[m] * log(self.last_strategy[m])
+                      for m in self.M if self.last_strategy[m]])
         return ll / self.tau()
 
     def hloglk(self, old_loglk, hdict,

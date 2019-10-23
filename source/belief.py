@@ -39,9 +39,12 @@ class BayesianBelief:
 
 class FrequentistBelief:
 
-    def __init__(self, profiles, need_pr=False):
+    def __init__(self, profiles, need_pr=False, ids=None):
         self.profiles = profiles
-        self.loglk = {p: 0 for p in self.profiles}
+        if len(ids) == 1:
+            self.loglk = {p: 0 for p in self.profiles}
+        else:
+            self.loglk = {id: {p: 0 if p.id == id for p in self.profiles} for id in ids}
         self.need_pr = need_pr
         if need_pr:
             self.pr = {p: 1 / len(profiles) for p in self.profiles}
@@ -57,14 +60,17 @@ class FrequentistBelief:
         if self.need_pr:
             self.compute_pr(t)
 
-    def update(self, m=None):
-        for p in self.profiles:
-            if m:
-                self.loglk[p] = p.loglk(self.loglk[p], m)
-            else:
+    def update(self, ids=None):
+        if ids is None:
+            for p in self.profiles:
                 self.loglk[p] = p.loglk(self.loglk[p])
-        if self.need_pr:
-            self.compute_pr(self.profiles[0].tau())
+            if self.need_pr:
+                self.compute_pr(self.profiles[0].tau())
+        else:
+            for id in ids:
+                for p in self.profiles:
+                    if p.id == id:
+                        self.loglk[id][p] = p.loglk(self.loglk[id][p], id)
 
     def compute_pr(self, t):
         for p, x in self.loglk.items():
@@ -104,8 +110,14 @@ class MultiBelief:
             return None
         lkl = 1
         for o in targets:
-            for t in o:
-                lkl *= 1 - util.prod(1 - p.last_strategy[t] for p in prof_list)
+            lkl_o = 0
+            for p in prof_list:
+                prob_only_p_hits = p.last_strategy[o]
+                for p1 in prof_list:
+                    if p1 != p:
+                        prob_only_p_hits *= 1 - p1.last_strategy[o]
+                lkl_o += prob_only_p_hits
+            lkl *= lkl_o
         if lkl == 0:
             return None
         new_l = log(lkl)

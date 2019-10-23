@@ -90,9 +90,10 @@ def X(*args):
 
 class FR1S(player.Defender):
     """
-    1-step, no-unknown-profiles version of follow the regret
+    1-step, no-unknown-profiles version of follow the regret, uses memoization
+    + some code rearrangement to decrease complexity
     """
-    name = "FRL1S"
+    name = "FR1S"
     pattern = re.compile(r"^" + name + r"\d(-\d)?$")
 
     @classmethod
@@ -102,43 +103,68 @@ class FR1S(player.Defender):
     def __init__(self, game, id, resources):
         super().__init__(game, id, resources)
         self.belief = None
+        self.s_d = dict()
+        self.s_a = dict()
+        self.o_l = dict()
         # self.t_strategies = None
         # self.exploration = exploration
 
     def finalize_init(self):
         super().finalize_init()
+        self.s_d = {p: self.br_to(p) for p in self.A}
+        self.s_a = {p: {pp: pp.play_strategy(strategy=self.ds[p]) for pp in self.A} for p in self.A}
+        self.o_l = {p: p.opt_loss() for p in self.A}
         self.belief = source.belief.FrequentistBelief(self.game.profiles,
                                                       need_pr=True)
 
+
     def compute_strategy(self):
         R = self.reg_est()
-        min_k = min(range(len(self.A)), key=lambda k: R[k])
+#        min_k = min(range(len(self.A)), key=lambda k: R[k])
+        min_k = min(R.keys(), key=lambda k: R[k])
         return self.br_to(self.A[min_k])
 
     def learn(self):
         self.belief.update()
 
     def reg_est(self):
-        R = []
+        R = dict()
         for k in self.A:
-            R.append(0)
-            s_d = self.br_to(k)
-            ds_history = [s_d]
-            for t in self.A:
-                t.play_strategy(strategy=s_d)
-            s_a = {q: q.last_strategy for q in self.A}
-            for i, j in X(self.M, self.M):
-                H = [(i, j)]
-                hdicts = {q: q.hlearn(H, ds_history, None)
+            R[k] = 0
+            s_d = self.s_d[k]
+            ds_history = s_d
+            for j in self.M:
+                H = [(0, j)]
+                hdicts = {q: q.hlearn(H, [], None)
                            for q in self.A}
-                b1 = self.belief.get_copy()
-                b1.hupdate(hdicts, H, ds_history, s_a)
-                R[-1] += 0 if i == j else ((self.V[j] - sum([b1.pr[q]
-                                            * q.opt_loss(history=H1)
-                                            for q in self.A])) * s_d[i]
-                                            * sum([self.belief.pr[q] * s_a[q][j]
-                                            for q in self.A]))
+                b = self.belief.get_copy()
+                b.hupdate(hdicts, H, ds_history, self.s_a[k])
+                R[k] += (self.V[j] * (1 - s_d[j]) - sum([b.pr[q] *
+                         self.o_l[q] for q in self.A])) * sum([self.belief.pr[q]
+                         * self.s_a[q][j] for q in self.A])
         return R
+
+#    def reg_est(self):
+#        R = []
+#        for k in self.A:
+#            R.append(0)
+#            s_d = self.br_to(k)
+#            ds_history = [s_d]
+#            for t in self.A:
+#                t.play_strategy(strategy=s_d)
+#            s_a = {q: q.last_strategy for q in self.A}
+#            for i, j in X(self.M, self.M):
+#                H = [(i, j)]
+#                hdicts = {q: q.hlearn(H, ds_history, None)
+#                           for q in self.A}
+#                b1 = self.belief.get_copy()
+#                b1.hupdate(hdicts, H, ds_history, s_a)
+#                R[-1] += 0 if i == j else ((self.V[j] - sum([b1.pr[q]
+#                                            * q.opt_loss(history=H1)
+#                                            for q in self.A])) * s_d[i]
+#                                            * sum([self.belief.pr[q] * s_a[q][j]
+#                                            for q in self.A]))
+#        return R
 
 class FRL(player.Defender):
     """
