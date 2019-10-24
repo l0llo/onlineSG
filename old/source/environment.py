@@ -91,11 +91,17 @@ class Environment:
 #            feedbacks = {t: payoffs[t] * (self.game.history[-1][self.agent_id] in self.game.history[-1][1] and self.game.history[-1][self.agent_id] == t) for t in targets}
 
     def opt_loss(self):
-        attackers = [a for a in self.game.players.values() if a.id != self.agent_id]
-        if all([p.closed_form_sol for p in self.game.profiles]):
-            strategy_vec = self.game.players[self.agent_id].multi_lp_br_to(attackers)
-        else:
-            strategy_vec = self.game.players[self.agent_id].multi_approx_br_to(attackers)
+        attackers = [a for a in self.game.players.values()
+                     if a.id in self.game.attackers]
+        def fun(x):
+            return sum(a.exp_loss(x) for a in attackers)
+        targets = range(len(self.game.values))
+        bnds = tuple([(0, 1) for t in targets])
+        cons = ({'type': 'eq', 'fun': lambda x: sum(x) - 1})
+        res = scipy.optimize.minimize(fun, util.gen_distr(len(targets)),
+                                      method='SLSQP', bounds=bnds,
+                                      constraints=cons, tol=0.000001)
+        strategy_vec = list(res.x)
         return sum(a.exp_loss(strategy_vec) for a in attackers)
 
     def mp_opt_strat(self, ap_tup, **kwargs):

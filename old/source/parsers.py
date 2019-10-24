@@ -161,9 +161,9 @@ class Parser:
             else:
                 game = parse_game(values, player_number, time_horizon,
                                 known_payoffs, dist_att)
-            defender_ids = [parse_player(d, game, j)
+            defenders_ids = [parse_player(d, game, j)
                              for (j, d) in enumerate(defender_types)]
-#            attacker_ids = [parse_player(a, game, i + len(defender_ids))
+#            attacker_ids = [parse_player(a, game, i + len(defenders_ids))
 #                            for (i, a) in enumerate(attacker_types)]
             attacker_ids = []
             for i, a in enumerate(attacker_types):
@@ -176,14 +176,15 @@ class Parser:
                     attacker_ids.append(parse_player(attacker_types[i], game,
                                         id_att) if match
                                                 else parse_player(a, game,
-                                                        i + len(defender_ids)))
+                                                        i + len(defenders_ids)))
                 else:
                     attacker_ids.append(parse_multi_profile_player(attacker_types[i],
                                         game, id_att) if match
                                                       else parse_multi_profile_player(a,
-                                                            game, i + len(defender_ids)))
+                                                            game, i + len(defenders_ids)))
 #            profiles = [parse_player(a, game, 1)
 #                        for (i, a) in enumerate(profile_types)]
+
             if self.att_prof_prob_headers:
                 if len(att_prof_prob) < len(attacker_ids):
                     l = len(attacker_ids) - len(att_prof_prob)
@@ -205,9 +206,9 @@ class Parser:
                                 id_prof) if match
                                 else parse_player(a, game, 1))
             if type(game).__name__ == 'MultiProfileGame':
-                game.set_players(defender_ids, attacker_ids, profiles, att_prof_prob)
+                game.set_players(defenders_ids, attacker_ids, profiles, att_prof_prob)
             else:
-                game.set_players(defender_ids, attacker_ids, profiles)
+                game.set_players(defenders_ids, attacker_ids, profiles)
             return game, name
         except (UnparsableGameError, UnparsablePlayerError,
                 TuplesWrongLenghtError) as e:

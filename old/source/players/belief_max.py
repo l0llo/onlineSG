@@ -31,7 +31,6 @@ class FB(player.Defender):
         super().__init__(game, pl_id, resources)
         self.belief = None
         self.learning_history = []
-        self.use_lp = None
 #        self.bound = 0
 #        self.is_game_partial_feedback = isinstance(self.game, gm.PartialFeedbackGame)
 
@@ -43,9 +42,7 @@ class FB(player.Defender):
             self.belief = source.belief.MultiBelief(self.game.profiles,
                                                     len(self.game.attackers))
         else:
-            self.belief = source.belief.FrequentistBelief(self.game.profiles,
-                                                          ids=self.game.attackers)#, need_pr=self.is_game_partial_feedback)
-        self.use_lp = all([p.closed_form_sol for p in self.A])
+            self.belief = source.belief.FrequentistBelief(self.game.profiles)#, need_pr=self.is_game_partial_feedback)
 #        self.compute_bound()
 
     def compute_strategy(self):
@@ -74,33 +71,43 @@ class FB(player.Defender):
                                                 key=lambda x: valid_loglk[x]))
         else:
             max_belief_profiles = []
-            for id in self.game.attackers:
-                valid_loglk = {p: self.belief.loglk[id][p] for p in self.A
-                                if (p.id == id and
-                                self.belief.loglk[id][p] is not None)}
-                p = util.rand_max(valid_loglk.keys(),
+            for pl in self.game.players.values():
+                id = pl.id
+                if id in self.game.attackers:
+                    valid_loglk = {p: self.belief.loglk[p] for p in self.A
+                                    if (self.belief.loglk[p] is not None
+                                    and p.id == id)}
+                    p = util.rand_max(valid_loglk.keys(),
                                       key=lambda x: valid_loglk[x])
-                max_belief_profiles.append(p)
-        if self.closed_form_sol:
-            self.last_multi_br_to = self.multi_lp_br_to(max_belief_profiles)
-        else:
-            self.last_multi_br_to = self.multi_approx_br_to(max_belief_profiles)
-        return self.last_multi_br_to
+                    max_belief_profiles.append(p)
+        return self.multi_br_to(max_belief_profiles)
 
     def learn(self):
+#        m = self.compute_most_informative_target()
         if type(self.game).__name__ == "MultiProfileGame":
             self.belief.update()
-        elif len(self.game.attackers) > 1:
-            if self.game.dist_att:
-                self.belief.update(self.game.attackers)
-            else:
-                self.belief.update([self.game.history[-1][a]
-                                    for a in self.game.attackers])
+        elif len(self.game.attackers) > 1 and not self.game.dist_att:
+            self.belief.update([self.game.history[-1][p]
+                                for p in self.game.players if p != self.id])
         else:
             self.belief.update()#m)
             #extreme case where all profiles have been eliminated, make a clean slate of what was learnt
             if all([p is None for p in self.belief.loglk.values()]):
                 self.belief.loglk = {p: 0 for p in self.A}
+
+#    def compute_most_informative_target(self):
+#        valid_loglk = {p: self.belief.loglk[p] for p in self.A
+#                       if self.belief.loglk[p] is not None}
+#        max_p = util.rand_max(valid_loglk.keys(), key=lambda x: valid_loglk[x])
+#        valid_loglk.pop(max_p, None)
+#        second_max_p = util.rand_max(valid_loglk.keys(), key=lambda x: valid_loglk[x])
+#        profile_strategies = [p.compute_strategy(self.last_strategy)
+#                              for p in self.A if self.belief.loglk[p] is not None]
+#        profile_strategies = [p.compute_strategy(self.last_strategy)
+#                              for p in [max_p, second_max_p]]
+#        prob_by_target = [list(tup) for tup in zip(*profile_strategies)]
+#        min_prob_diff = [util.find_min_diff(l, len(l)) for l in prob_by_target]
+#        return np.argmax(min_prob_diff)
 
     def compute_multi_prof_strategy(self):
         valid_loglk = {p: self.belief.loglk[p] for p in self.belief.loglk.keys()
@@ -172,6 +179,17 @@ class FB(player.Defender):
                 if log_diff < min_diff:
                     min_diff = log_diff
         return min_diff
+
+    def multi_br_to(self, profiles):
+        def fun(x):
+            return sum(p.exp_loss(x) for p in profiles)
+        bnds = tuple([(0, 1) for t in self.M])
+        cons = ({'type': 'eq', 'fun': lambda x: sum(x) - 1})
+        res = scipy.optimize.minimize(fun, util.gen_distr(len(self.M)),
+                                      method='SLSQP', bounds=bnds,
+                                      constraints=cons, tol=0.000001)
+        self.last_multi_br_to = list(res.x)
+        return self.last_multi_br_to
 
 #    def multi_br_to(self, profiles):
 #        A_ub = []

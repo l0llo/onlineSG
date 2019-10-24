@@ -277,13 +277,6 @@ class FrequentistUnknownStochasticAttacker(HistoryDependentAttacker):
         super().__init__(game, id, resources)
         self.weights = [0 for m in self.M]
         self.lb = lb
-        self.visits = [0 for m in self.M]
-        if (isinstance(self.game, gm.PartialFeedbackGame) and
-            (any([int(fp) != 1 for fp in list(self.game.feedback_prob.values())]) or
-            self.game.feedback_type == "mab")):
-            self.use_ucb = 1
-        else:
-            self.use_ucb = 0
 
     def compute_strategy(self, hdict=None, **kwargs):
         """
@@ -291,26 +284,21 @@ class FrequentistUnknownStochasticAttacker(HistoryDependentAttacker):
         at each round: then best respond to the computed strategy
         """
 
-
         if self.tau() == 0:
             return self.uniform_strategy(len(self.game.values))
-        if not self.use_ucb:
+        else:
             if hdict is not None:
                 distr = util.norm_min(hdict["weights"], m=self.lb)
             else:
                 # norm = sum(self.weights)
                 distr = util.norm_min(self.weights, m=self.lb)
             return distr
-        return softmax([self.weights[m] / self.visits[m] if self.visits[m] else 0 for m in self.M])
 
     def learn(self):
         if (not isinstance(self.game, gm.PartialFeedbackGame)
             or self.game.fake_target[-1] == 0):
-            for t in self.game.history[-1][self.id]:
-                self.weights[t] += 1
-        if self.use_ucb:
-            for t in self.game.history[-1][self.game.defenders[0]]:
-                self.visits[t] += 1
+            t = self.game.history[-1][self.id][0]
+            self.weights[t] += 1
 
     def hlearn(self, H, ds_history, hdict):
         add_w = [0 for m in self.M]
@@ -329,13 +317,7 @@ class FrequentistUnknownStochasticAttacker(HistoryDependentAttacker):
         more times this function in the same round could give different
         results.
         """
-        if self.use_ucb:
-            ucb = [self.game.values[m][self.id] * self.weights[m] / self.visits[m]
-                    if self.visits[m] else 0 for m in self.M]
-            for m in self.M:
-                ucb[m] += sqrt(2 * log(self.tau()) / self.visits[m]) if self.visits[m] else self.tau()
-            max_m = util.rand_max(self.M, key=lambda x: ucb[x])
-            return(self.ps(max_m))
+
         N = len(self.M)
         norm_const = max([v[self.id] for v in self.game.values])
         # if I am seeing a br in the "future" I have to compute the correct t
@@ -360,12 +342,8 @@ class FrequentistUnknownStochasticAttacker(HistoryDependentAttacker):
         return player.Attacker.opt_loss(self, **kwargs)
 
     def loglk(self, old_loglk):
-        if not self.use_ucb:
-            ll = sum([self.weights[m] * log(self.last_strategy[m])
-                      for m in self.M if self.last_strategy[m]])
-        else:
-            ll = sum([self.visits[m] * log(self.last_strategy[m])
-                      for m in self.M if self.last_strategy[m]])
+        ll = sum([self.weights[m] * log(self.last_strategy[m])
+                  for m in self.M if self.last_strategy[m]])
         return ll / self.tau()
 
     def hloglk(self, old_loglk, hdict,
@@ -652,7 +630,7 @@ class SUQR(StrategyAwareAttacker):
             self.w2 = w2
         self._use_memory = use_memory
         self.memory = dict()
-        self.closed_form_sol = False
+#        self.copied_br = None
 
     def compute_strategy(self, strategy=None, **kwargs):
         if strategy is None:
@@ -681,6 +659,8 @@ class SUQR(StrategyAwareAttacker):
         return list(q)
 
     def best_response(self, **kwargs):
+#        if self.copied_br:
+#            return self.copied_br
         if self.last_br is None:
             def fun(x):
                 return self.exp_loss(x)
@@ -901,7 +881,6 @@ class ObservingSUQR(ObservingStrategyAwareAttacker):
                      self.w3 = round(np.random.uniform(0, 1), 3) #TODO: extreme values need to be checked
                  else:
                      self.w3 = w3
-                 self.closed_form_sol = False
 
     def compute_strategy(self, strategy=None, **kwargs):
         if strategy is None:

@@ -193,40 +193,6 @@ class Defender(Player):
                 a.best_response(**kwargs)
         return a.best_response(**kwargs)
 
-    def multi_lp_br_to(self, profiles, **kwargs):
-        A_eq = [[1 for i in self.M] + [0]]
-        b_eq = [self.resources]
-        A_ub = []
-        for t in self.M:
-            terms = [self.game.values[t][profiles[0].id] * int(i != t)
-                     for i in self.M]
-            terms += [1]
-            A_ub.append(terms)
-        b_ub = [0 for i in range(len(A_ub))]
-        bounds = [(0, 1) for i in self.M] + [(None, None)]
-        c = [0 for i in self.M] + [0]
-        for p in profiles:
-            consts = p.update_obj_fun(1)
-            c = [c[i] + consts[i] for i in range(len(c))]
-        scipy_sol = list(scipy.optimize.linprog(c,
-                                                A_ub=np.array(A_ub),
-                                                b_ub=np.array(b_ub),
-                                                A_eq=np.array(A_eq),
-                                                b_eq=np.array(b_eq),
-                                                bounds=bounds,
-                                                method='simplex').x)
-        return scipy_sol[:-1]
-
-    def multi_approx_br_to(self, profiles):
-        def fun(x):
-            return sum(p.exp_loss(x) for p in profiles)
-        bnds = tuple([(0, 1) for t in self.M])
-        cons = ({'type': 'eq', 'fun': lambda x: sum(x) - 1})
-        res = scipy.optimize.minimize(fun, util.gen_distr(len(self.M)),
-                                      method='SLSQP', bounds=bnds,
-                                      constraints=cons, tol=0.000001)
-        return list(res.x)
-
     def mp_br_to(self, ap_tup, **kwargs):
         A_eq = [[1 for i in self.M] + [0]]
         b_eq = [self.resources]
@@ -243,6 +209,7 @@ class Defender(Player):
             for ap in list(ap_t):
                 consts = ap[0].update_obj_fun(ap[1])
                 c = [c[i] + consts[i] for i in range(len(c))]
+
         scipy_sol = list(scipy.optimize.linprog(c,
                                                 A_ub=np.array(A_ub),
                                                 b_ub=np.array(b_ub),
@@ -271,7 +238,6 @@ class Attacker(Player):
         self.last_br = None
         self.last_ol = None
         self.last_br_call = None
-        self.closed_form_sol = True
 
     def finalize_init(self):
         super().finalize_init()
@@ -439,16 +405,16 @@ class Attacker(Player):
 #            return ((old_loglk * max(self.tau() - 1, 0) + new_l) /
 #                    max(self.tau(), 1))
 
-    def loglk(self, old_loglk, a_id=None):
+    def loglk(self, old_loglk, m=None):
         if old_loglk is None:
             return None
         if (not isinstance(self.game, game.PartialFeedbackGame)
             or self.game.fake_target[-1] == 0):
-            if a_id is None:
-                o = self.game.history[-1][self.id][0]
+            o = self.game.history[-1][self.id][0]
+            if m and not(m == o):
+                lkl = 1 - self.last_strategy[m]
             else:
-                o = self.game.history[-1][self.id][a_id]
-            lkl = self.last_strategy[o]
+                lkl = self.last_strategy[o]
         else:
             # if no feedback is received then we compute belief that defended target was not attacked
             def_targets = [self.game.history[-1][self.game.defenders[0]][0]]
