@@ -154,7 +154,7 @@ class Parser:
                   for o in self.observability_headers]) or
                   self.feedback_prob_headers and any([feedback_prob.get(int(fp[9:])) != 1.0
                   for fp in self.feedback_prob_headers]) or
-                  feedback_type != "mab"):
+                  feedback_type == "mab"):
                   game = parse_partial_feedback_game(values, player_number,
                                   time_horizon, observabilities, feedback_prob,
                                   feedback_type, known_payoffs, dist_att)
