@@ -7,7 +7,7 @@ from math import exp, sqrt, log
 import source.util as util
 import scipy.optimize
 import logging
-import source.game as game
+import source.game as gm
 from scipy.stats import dirichlet
 from scipy.stats import beta
 from scipy.special import softmax
@@ -136,7 +136,7 @@ class StackelbergAttacker(StrategyAwareAttacker):
         if not self.last_br:
             A_ub = []
             for t in self.M:
-                terms = [self.game.values[t][self.id] * (int(i != t) if i != t or not isinstance(self.game, game.PartialFeedbackGame)
+                terms = [self.game.values[t][self.id] * (int(i != t) if i != t or not isinstance(self.game, gm.PartialFeedbackGame)
                                                                    else 1 - self.game.observabilities.get(t))
                          for i in self.M]
                 terms += [1]
@@ -295,7 +295,7 @@ class FrequentistUnknownStochasticAttacker(HistoryDependentAttacker):
             return distr
 
     def learn(self):
-        if (not isinstance(self.game, game.PartialFeedbackGame)
+        if (not isinstance(self.game, gm.PartialFeedbackGame)
             or self.game.fake_target[-1] == 0):
             t = self.game.history[-1][self.id][0]
             self.weights[t] += 1
@@ -384,7 +384,7 @@ class BayesianUnknownStochasticAttacker(player.Attacker):
 
     def __init__(self, game, id, resources=1, *prior):
         super().__init__(game, id, resources)
-        if (isinstance(self.game, game.PartialFeedbackGame) and
+        if (isinstance(self.game, gm.PartialFeedbackGame) and
             (any([int(fp) != 1 for fp in list(self.game.feedback_prob.values())]) or
             self.game.feedback_type == "mab")):
             self.prior_type = "beta"
@@ -480,7 +480,7 @@ class TSUnknownStochasticAttacker(player.Attacker):
 
     def learn(self):
         m = self.game.history[-1][self.id][0]
-        if (not isinstance(self.game, game.PartialFeedbackGame)
+        if (not isinstance(self.game, gm.PartialFeedbackGame)
             or self.game.fake_target[-1] == 0):
             self.params[m][0] += 1
         else:
@@ -592,7 +592,7 @@ class TSUnknownStochasticAttacker(player.Attacker):
 #        self
 #        if old_loglk is None:
 #            return None
-#        if not isinstance(self.game, game.PartialFeedbackGame) or self.game.fake_target[-1] == 0:
+#        if not isinstance(self.game, gm.PartialFeedbackGame) or self.game.fake_target[-1] == 0:
 #            o = self.game.history[-1][1][0]
 #            self.set_weights(o)
 #            lkl = self.weights[o] / sum(self.weights)
@@ -845,7 +845,7 @@ class ObservingStackelbergAttacker(ObservingStrategyAwareAttacker):
         if not self.last_br:
             A_ub = []
             for t in self.M:
-                terms = [self.game.values[t][self.id] * int(i != t if i != t or not isinstance(self.game, game.PartialFeedbackGame)
+                terms = [self.game.values[t][self.id] * int(i != t if i != t or not isinstance(self.game, gm.PartialFeedbackGame)
                                                                    else 1 - self.game.observabilities.get(t))
                          for i in self.M]
                 terms += [1]
@@ -895,7 +895,7 @@ class ObservingSUQR(ObservingStrategyAwareAttacker):
                 return self.memory[tuple(x)]
         targets = list(range(len(self.game.values)))
         R = [v[self.id] for v in self.game.values]
-        if isinstance(self.game, game.PartialFeedbackGame):
+        if isinstance(self.game, gm.PartialFeedbackGame):
             if a is not None and b is not None and c is not None:
                 q = np.array([exp((-a * x[t] +
                                 b * R[t]
