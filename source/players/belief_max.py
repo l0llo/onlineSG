@@ -81,7 +81,7 @@ class FB(player.Defender):
                 p = util.rand_max(valid_loglk.keys(),
                                       key=lambda x: valid_loglk[x])
                 max_belief_profiles.append(p)
-        if self.closed_form_sol:
+        if self.use_lp:
             self.last_multi_br_to = self.multi_lp_br_to(max_belief_profiles)
         else:
             self.last_multi_br_to = self.multi_approx_br_to(max_belief_profiles)
@@ -90,11 +90,8 @@ class FB(player.Defender):
     def learn(self):
         if type(self.game).__name__ == "MultiProfileGame":
             self.belief.update()
-        elif len(self.game.attackers) > 1:
-            if self.game.dist_att:
-                self.belief.update(self.game.attackers)
-            else:
-                self.belief.update([self.game.history[-1][a]
+        elif len(self.game.attackers) > 1 and not self.game.dist_att:
+                self.belief.update([self.game.history[-1][a][0]
                                     for a in self.game.attackers])
         else:
             self.belief.update()#m)

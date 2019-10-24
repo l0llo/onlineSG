@@ -66,7 +66,8 @@ def plot_dicts(dlst, name="figure", ylabel="$R(U)_n$", path=".",
                                                 matplotlib.lines.Line2D)]
 #    labels = [h._label for h in handles]
 #    labels = ["$Full$", "$MAB$"]
-    labels = ["$Sto$", "$Fusto$", "$Busto$", "$Busto\_good$"]
+#    labels = ["$Sto$", "$Fusto$", "$Busto$", "$Busto\_good$"]
+    labels = ["$FB\_vs\_dist\_multi$", "$FB\_vs\_undist\_multi$"]
     ax.legend(loc=2, bbox_to_anchor=(0, 1), borderaxespad=0.1,
               fancybox=False, shadow=False, handles=handles,
               labels=labels, prop={'size': 9})

@@ -43,8 +43,10 @@ class FrequentistBelief:
         self.profiles = profiles
         if len(ids) == 1:
             self.loglk = {p: 0 for p in self.profiles}
+            self.is_multi = False
         else:
             self.loglk = {id: {p: 0 for p in self.profiles if p.id == id} for id in ids}
+            self.is_multi = True
         self.need_pr = need_pr
         if need_pr:
             self.pr = {p: 1 / len(profiles) for p in self.profiles}
@@ -60,17 +62,16 @@ class FrequentistBelief:
         if self.need_pr:
             self.compute_pr(t)
 
-    def update(self, ids=None):
-        if ids is None:
+    def update(self):
+        if not self.is_multi:
             for p in self.profiles:
                 self.loglk[p] = p.loglk(self.loglk[p])
-            if self.need_pr:
-                self.compute_pr(self.profiles[0].tau())
+                if self.need_pr:
+                    self.compute_pr(self.profiles[0].tau())
         else:
-            for id in ids:
-                for p in self.profiles:
-                    if p.id == id:
-                        self.loglk[id][p] = p.loglk(self.loglk[id][p], id)
+            for id in self.loglk.keys():
+                for p in self.loglk[id].keys():
+                    self.loglk[id][p] = p.loglk(self.loglk[id][p])
 
     def compute_pr(self, t):
         for p, x in self.loglk.items():

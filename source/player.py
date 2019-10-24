@@ -98,7 +98,7 @@ class Player:
 
     def sample_strategy(self):
         """
-        samples a moves from the computed distribution
+        samples a move from the computed distribution
         """
         return sample(self.last_strategy, self.resources)
 
@@ -439,19 +439,16 @@ class Attacker(Player):
 #            return ((old_loglk * max(self.tau() - 1, 0) + new_l) /
 #                    max(self.tau(), 1))
 
-    def loglk(self, old_loglk, a_id=None):
+    def loglk(self, old_loglk):
         if old_loglk is None:
             return None
         if (not isinstance(self.game, game.PartialFeedbackGame)
             or self.game.fake_target[-1] == 0):
-            if a_id is None:
-                o = self.game.history[-1][self.id][0]
-            else:
-                o = self.game.history[-1][self.id][a_id]
+            o = self.game.history[-1][self.id][0]
             lkl = self.last_strategy[o]
         else:
             # if no feedback is received then we compute belief that defended target was not attacked
-            def_targets = [self.game.history[-1][self.game.defenders[0]][0]]
+            def_targets = self.game.history[-1][self.game.defenders[0]]
             lkl = 1 - sum(self.last_strategy[t] for t in def_targets)
         if lkl == 0:
             return None
@@ -482,9 +479,17 @@ class Attacker(Player):
 
 
 def sample(distribution, items_number):
-    selected_indexes = np.random.choice(len(distribution),
-                                        items_number,
-                                        p=distribution, replace=False)
+    selected_indexes = [e for e in range(len(distribution)) if distribution[e] == 1.0]
+    dist = deepcopy(distribution)
+    for e in selected_indexes:
+        dist[e] = 0.0
+    norm = items_number - len(selected_indexes)
+    if norm != 0:
+        dist = [p / norm for p in dist]
+        selected_indexes= selected_indexes + list(np.random.choice(len(distribution),
+                                                                    norm,
+                                                                    p=dist,
+                                                                    replace=False))
     return [e for e in selected_indexes]
 
 class ObservingAttacker(Attacker):
