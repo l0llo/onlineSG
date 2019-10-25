@@ -1,0 +1,3 @@
+Name,T,0,1,2,3,4,Defender,Attacker,Profile,Profile,Profile,Profile,Profile,Profile,Obs0,Obs1,Obs2,Obs3,Obs4,Feed_prob0,Feed_prob1,Feed_prob2,Feed_prob3,Feed_prob4,Feed_type
+Full_feedback,1000,0.945,0.827,0.872,0.961,0.943,FB1,suqr1-8.02-0.09,sta1,suqr1-12.903-0.383,suqr1-12.822-0.725,suqr1-8.459-0.648,suqr1-9.204-0.095,suqr1-8.02-0.09,1,1,1,1,1,1,1,1,1,1,full
+MAB_feedback,1000,0.945,0.827,0.872,0.961,0.943,FB1,suqr1-8.02-0.09,sta1,suqr1-12.903-0.383,suqr1-12.822-0.725,suqr1-8.459-0.648,suqr1-9.204-0.095,suqr1-8.02-0.09,1,1,1,1,1,1,1,1,1,1,mab
